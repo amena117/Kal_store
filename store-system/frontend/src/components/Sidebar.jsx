@@ -51,10 +51,11 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const roleNavItems = {
     'Admin': [
-      { path: '/sales/pos',           name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
+     
       { path: '/admin/dashboard',     name: 'Dashboard',            icon: <LayoutDashboard size={20} /> },
       { path: '/admin/users',         name: 'User Management',      icon: <Users size={20} /> },
       { path: '/admin/branches',      name: 'Branches',             icon: <Building2 size={20} /> },
+       { path: '/sales/pos',           name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
       { path: '/admin/sales',         name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
       { path: '/admin/sales-history', name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
       { path: '/encoder/categories',  name: 'Categories',           icon: <Tags size={20} /> },
@@ -71,9 +72,9 @@ const Sidebar = ({ isOpen, onClose }) => {
       { path: '/admin/expense-history',name:'Expense Edit Audit',   icon: <ClipboardList size={20} /> },
       { path: '#profile',             name: 'Profile Settings',     icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
     ],
-    'Manager': [
-      { path: '/sales/pos',              name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
+    'Manager': [    
       { path: '/manager/dashboard',      name: 'Dashboard',            icon: <LayoutDashboard size={20} /> },
+       { path: '/sales/pos',              name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
       { path: '/admin/sales',            name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
       { path: '/manager/sales-history',  name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
       { path: '/admin/products',         name: 'Products',             icon: <Package size={20} /> },
