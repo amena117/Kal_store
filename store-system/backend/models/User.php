@@ -117,5 +117,27 @@ class User {
         }
         return false;
     }
+
+    public function updateProfile() {
+        $passwordBlock = !empty($this->password) ? ", password=:password" : "";
+        $query = "UPDATE " . $this->table_name . " SET username=:username" . $passwordBlock . " WHERE id = :id";
+        
+        $stmt = $this->conn->prepare($query);
+
+        $this->username  = htmlspecialchars(strip_tags($this->username));
+        $this->id        = htmlspecialchars(strip_tags($this->id));
+
+        $stmt->bindParam(":username",  $this->username);
+        if(!empty($this->password)) {
+            $password_hash = password_hash($this->password, PASSWORD_BCRYPT);
+            $stmt->bindParam(":password", $password_hash);
+        }
+        $stmt->bindParam(":id", $this->id);
+
+        if($stmt->execute()) {
+            return true;
+        }
+        return false;
+    }
 }
 ?>

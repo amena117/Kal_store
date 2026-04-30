@@ -61,10 +61,10 @@ class ReservationController {
         $user_role = $user_data['role'];
         $user_id   = $user_data['id'];
 
-        // Only Admin and Manager can access reservations
-        if ($user_role !== 'Admin' && $user_role !== 'Manager') {
+        // Admin, Manager, Encoder, Salesperson can access reservations list/create
+        if (!in_array($user_role, ['Admin', 'Manager', 'Encoder', 'Salesperson'])) {
             http_response_code(403);
-            echo json_encode(["message" => "Forbidden: Admin or Manager access required."]);
+            echo json_encode(["message" => "Forbidden: Access denied."]);
             return;
         }
 
@@ -91,8 +91,15 @@ class ReservationController {
                 break;
             case 'POST':
                 if ($id) {
+                    // Update requires Admin or Manager
+                    if ($user_role !== 'Admin' && $user_role !== 'Manager') {
+                        http_response_code(403);
+                        echo json_encode(["message" => "Forbidden: Admin or Manager required to edit reservations."]);
+                        return;
+                    }
                     $this->updateReservation($id, $user_id, $branch_id);
                 } else {
+                    // All allowed roles can create
                     $this->createReservation($user_id, $branch_id);
                 }
                 break;

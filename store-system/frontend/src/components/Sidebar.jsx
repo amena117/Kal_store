@@ -17,14 +17,18 @@ import {
   ShoppingBag,
   Building2,
   TrendingUp,
-  Receipt
+  Receipt,
+  Settings,
+  UserCog
 } from 'lucide-react';
 import api from '../services/api';
 import BranchSelector from './BranchSelector';
+import ProfileModal from './ProfileModal';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState([]);
+  const [showProfile, setShowProfile] = useState(false);
 
   const fetchNotifications = async () => {
     if (user?.role === 'Admin' || user?.role === 'Manager') {
@@ -47,11 +51,13 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const roleNavItems = {
     'Admin': [
+      { path: '/sales/pos',           name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
       { path: '/admin/dashboard',     name: 'Dashboard',            icon: <LayoutDashboard size={20} /> },
       { path: '/admin/users',         name: 'User Management',      icon: <Users size={20} /> },
       { path: '/admin/branches',      name: 'Branches',             icon: <Building2 size={20} /> },
       { path: '/admin/sales',         name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
       { path: '/admin/sales-history', name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
+      { path: '/encoder/categories',  name: 'Categories',           icon: <Tags size={20} /> },
       { path: '/admin/products',      name: 'Products',             icon: <Package size={20} /> },
       { path: '/admin/history',       name: 'Product Audit History',icon: <History size={20} /> },
       { path: '/admin/low-stock',     name: 'Low Stock',            icon: <Bell size={20} className={notifications.length > 0 ? "text-warning" : ""} /> },
@@ -63,8 +69,10 @@ const Sidebar = ({ isOpen, onClose }) => {
       { path: '/admin/profit',        name: 'Profit Tracking',      icon: <TrendingUp size={20} /> },
       { path: '/expenses',            name: 'Expenses',             icon: <Receipt size={20} /> },
       { path: '/admin/expense-history',name:'Expense Edit Audit',   icon: <ClipboardList size={20} /> },
+      { path: '#profile',             name: 'Profile Settings',     icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
     ],
     'Manager': [
+      { path: '/sales/pos',              name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
       { path: '/manager/dashboard',      name: 'Dashboard',            icon: <LayoutDashboard size={20} /> },
       { path: '/admin/sales',            name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
       { path: '/manager/sales-history',  name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
@@ -79,19 +87,26 @@ const Sidebar = ({ isOpen, onClose }) => {
       { path: '/admin/profit',           name: 'Profit Tracking',      icon: <TrendingUp size={20} /> },
       { path: '/expenses',               name: 'Expenses',             icon: <Receipt size={20} /> },
       { path: '/manager/expense-history',name: 'Expense Edit Audit',   icon: <ClipboardList size={20} /> },
+      { path: '#profile',                name: 'Profile Settings',     icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
     ],
     'Encoder': [
       { path: '/encoder/categories', name: 'Categories',       icon: <Tags size={20} /> },
       { path: '/encoder/products',   name: 'Products',         icon: <Package size={20} /> },
       { path: '/encoder/sales',      name: 'Sales Log',        icon: <ShoppingCart size={20} /> },
       { path: '/sales/pos',          name: 'Point of Sale',    icon: <ShoppingCart size={20} /> },
+      { path: '/add-reservation',    name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },
+      { path: '/reservations',       name: 'Decor Reservations',icon: <Calendar size={20} /> },
       { path: '/rentals',            name: 'Standalone Rentals',icon: <ShoppingBag size={20} /> },
       { path: '/expenses',           name: 'Expenses',         icon: <Receipt size={20} /> },
+      { path: '#profile',            name: 'Profile Settings', icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
     ],
     'Salesperson': [
       { path: '/sales/pos', name: 'Point of Sale',     icon: <ShoppingCart size={20} /> },
+      { path: '/add-reservation', name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },
+      { path: '/reservations',    name: 'Decor Reservations',   icon: <Calendar size={20} /> },
       { path: '/rentals',   name: 'Standalone Rentals',icon: <ShoppingBag size={20} /> },
       { path: '/expenses',  name: 'Expenses',          icon: <Receipt size={20} /> },
+      { path: '#profile',   name: 'Profile Settings',  icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
     ]
   };
 
@@ -119,29 +134,47 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       <nav className="px-5 pb-6">
         {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            <div className="flex justify-between items-center w-full">
+          item.onClick ? (
+            <button
+              key={item.name}
+              onClick={item.onClick}
+              className="nav-link w-full border-none bg-transparent text-left"
+            >
               <div className="flex items-center gap-4">
                 {item.icon}
                 <span>{item.name}</span>
               </div>
-              {item.path === '/admin/low-stock' && notifications.length > 0 && (
-                <span className="bg-warning text-[#0f172a] text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
-                  {notifications.length}
-                </span>
-              )}
-            </div>
-          </NavLink>
+            </button>
+          ) : (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center gap-4">
+                  {item.icon}
+                  <span>{item.name}</span>
+                </div>
+                {item.path === '/admin/low-stock' && notifications.length > 0 && (
+                  <span className="bg-warning text-[#0f172a] text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+                    {notifications.length}
+                  </span>
+                )}
+              </div>
+            </NavLink>
+          )
         ))}
       </nav>
 
       {/* Sidebar Footer */}
       <div className="mt-auto p-4 border-t border-glass-border bg-black bg-opacity-30 shrink-0">
-        <div className="glass-panel p-4 mb-4 text-center">
+        <div className="glass-panel p-4 mb-4 text-center cursor-pointer hover:bg-white/10 transition-all relative group border border-transparent hover:border-white/10 shadow-sm" onClick={() => setShowProfile(true)} title="Update Profile">
+          <div className="absolute top-2 right-2 flex items-center gap-2 px-2 py-1 bg-white/10 text-white rounded-full transition-all duration-300 group-hover:bg-white/20 shadow-sm" title="Edit Profile">
+           
+     
+             
+          </div>
           <div className="text-sm font-semibold text-main">{user.name}</div>
           <div className="text-xs text-muted badge badge-success inline-block mt-1">{user.role}</div>
           {/* Show branch name for non-Admin users */}
@@ -157,6 +190,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           Logout
         </button>
       </div>
+
+      <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </aside>
   );
 };

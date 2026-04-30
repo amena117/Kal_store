@@ -77,17 +77,17 @@ function App() {
             <Route path="/manager/expense-history" element={<ProtectedRoute allowedRoles={['Manager']}><ExpenseHistory /></ProtectedRoute>} />
 
             {/* Encoder Routes */}
-            <Route path="/encoder/categories" element={<ProtectedRoute allowedRoles={['Encoder']}><Categories /></ProtectedRoute>} />
+            <Route path="/encoder/categories" element={<ProtectedRoute allowedRoles={['Encoder', 'Admin']}><Categories /></ProtectedRoute>} />
             <Route path="/encoder/products" element={<ProtectedRoute allowedRoles={['Encoder']}><Products /></ProtectedRoute>} />
             <Route path="/encoder/sales" element={<ProtectedRoute allowedRoles={['Encoder']}><SalesLog /></ProtectedRoute>} />
 
             {/* Sales Routes */}
-            <Route path="/sales/pos" element={<ProtectedRoute allowedRoles={['Salesperson', 'Encoder']}><POS /></ProtectedRoute>} />
+            <Route path="/sales/pos" element={<ProtectedRoute allowedRoles={['Salesperson', 'Encoder', 'Admin', 'Manager']}><POS /></ProtectedRoute>} />
 
-            {/* Reservation Routes (Admin & Manager) */}
-            <Route path="/reservations" element={<ProtectedRoute allowedRoles={['Admin', 'Manager']}><ReservationList /></ProtectedRoute>} />
-            <Route path="/add-reservation" element={<ProtectedRoute allowedRoles={['Admin', 'Manager']}><AddReservation /></ProtectedRoute>} />
-            <Route path="/reservations/:id" element={<ProtectedRoute allowedRoles={['Admin', 'Manager']}><ReservationDetails /></ProtectedRoute>} />
+            {/* Reservation Routes */}
+            <Route path="/reservations" element={<ProtectedRoute allowedRoles={['Admin', 'Manager', 'Encoder', 'Salesperson']}><ReservationList /></ProtectedRoute>} />
+            <Route path="/add-reservation" element={<ProtectedRoute allowedRoles={['Admin', 'Manager', 'Encoder', 'Salesperson']}><AddReservation /></ProtectedRoute>} />
+            <Route path="/reservations/:id" element={<ProtectedRoute allowedRoles={['Admin', 'Manager', 'Encoder', 'Salesperson']}><ReservationDetails /></ProtectedRoute>} />
             <Route path="/edit-reservation/:id" element={<ProtectedRoute allowedRoles={['Admin', 'Manager']}><EditReservation /></ProtectedRoute>} />
 
             {/* Rental Routes */}

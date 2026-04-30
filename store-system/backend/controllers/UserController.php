@@ -37,16 +37,20 @@ class UserController {
                 $this->createUser($payload);
                 break;
             case 'PUT':
-                if ($payload['role'] !== 'Admin') {
-                    http_response_code(403);
-                    echo json_encode(["message" => "Forbidden: Admin required to update users."]);
-                    return;
-                }
-                if ($id) {
-                    $this->updateUser($id, $payload);
+                if ($id === 'profile') {
+                    $this->updateProfile($payload);
                 } else {
-                    http_response_code(400);
-                    echo json_encode(["message" => "User ID required for update."]);
+                    if ($payload['role'] !== 'Admin') {
+                        http_response_code(403);
+                        echo json_encode(["message" => "Forbidden: Admin required to update users."]);
+                        return;
+                    }
+                    if ($id) {
+                        $this->updateUser($id, $payload);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(["message" => "User ID required for update."]);
+                    }
                 }
                 break;
             default:
@@ -136,6 +140,31 @@ class UserController {
         } else {
             http_response_code(400);
             echo json_encode(["message" => "Incomplete data."]);
+        }
+    }
+
+    private function updateProfile($payload) {
+        $data = json_decode(file_get_contents("php://input"));
+
+        if(!empty($data->username)) {
+            $user = new User($this->db);
+            $user->id        = $payload['id'];
+            $user->username  = $data->username;
+            
+            if(isset($data->password) && !empty($data->password)) {
+                $user->password = $data->password;
+            }
+
+            if($user->updateProfile()) {
+                http_response_code(200);
+                echo json_encode(["message" => "Profile updated successfully. Please log in again if you changed your credentials.", "requires_login" => true]);
+            } else {
+                http_response_code(503);
+                echo json_encode(["message" => "Unable to update profile. Username may be taken."]);
+            }
+        } else {
+            http_response_code(400);
+            echo json_encode(["message" => "Incomplete data. Username is required."]);
         }
     }
 }

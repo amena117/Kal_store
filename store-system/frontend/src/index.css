@@ -153,7 +153,12 @@ h1, h2, h3, h4 {
 .bg-main\/50 { background-color: rgba(79, 70, 229, 0.5); }
 .bg-main\/10 { background-color: rgba(79, 70, 229, 0.1); }
 .hover\:bg-main\/10:hover { background-color: rgba(79, 70, 229, 0.1); }
-.hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2); }
+.bg-white\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
+.bg-white\/20 { background-color: rgba(255, 255, 255, 0.2) !important; }
+.hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.1) !important; }
+.hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
+.text-white { color: #ffffff !important; }
+.bg-dark\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
 
 /* Flex & Layout Utilities */
 .flex { display: flex; }

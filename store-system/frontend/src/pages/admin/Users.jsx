@@ -417,9 +417,10 @@ const Users = () => {
                         onChange={e => setCreateForm({ ...createForm, password: e.target.value })}
                         style={{ padding: '0.75rem 1rem', fontSize: '0.95rem' }}
                       />
-                      <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                      <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-white/10 transition-colors"
                         onClick={() => setShowCreatePwd(p => !p)}
                         tabIndex="-1"
+                        style={{ color: 'rgba(255, 255, 255, 0.9)' }}
                       >
                         {showCreatePwd ? <EyeOff size={16}/> : <Eye size={16}/>}
                       </button>
@@ -437,6 +438,13 @@ const Users = () => {
                         onChange={e => setCreateForm({ ...createForm, confirmPassword: e.target.value })}
                         style={{ padding: '0.75rem 1rem', fontSize: '0.95rem' }}
                       />
+                      <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-white/10 transition-colors"
+                        onClick={() => setShowCreatePwd(p => !p)}
+                        tabIndex="-1"
+                        style={{ color: 'rgba(255, 255, 255, 0.9)' }}
+                      >
+                        {showCreatePwd ? <EyeOff size={16}/> : <Eye size={16}/>}
+                      </button>
                     </div>
                   </div>
                 </div>

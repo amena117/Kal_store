@@ -7,7 +7,7 @@ import { exportToCSV } from '../../utils/csvExport';
 
 const ReservationList = () => {
   const navigate = useNavigate();
-  const { activeBranchId, branchParam } = useAuth();
+  const { user, activeBranchId, branchParam } = useAuth();
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -148,13 +148,15 @@ const ReservationList = () => {
                     <td className="text-muted">{res.phone}</td>
                     <td className="text-right">
                       <div className="flex justify-end gap-2">
-                        <button 
-                          className="btn btn-glass btn-sm p-2 rounded-full text-main hover:bg-main/10" 
-                          onClick={(e) => { e.stopPropagation(); navigate(`/edit-reservation/${res.id}`); }}
-                          title="Edit Reservation"
-                        >
-                          <Edit2 size={16} />
-                        </button>
+                        {(user?.role === 'Admin' || user?.role === 'Manager') && (
+                          <button 
+                            className="btn btn-glass btn-sm p-2 rounded-full text-main hover:bg-main/10" 
+                            onClick={(e) => { e.stopPropagation(); navigate(`/edit-reservation/${res.id}`); }}
+                            title="Edit Reservation"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
                         <button className="btn btn-glass btn-sm p-2 rounded-full" title="View Details">
                           <ChevronRight size={18} />
                         </button>
