@@ -151,14 +151,15 @@ class Reservation {
             // Insert into reservation_history if editor_id is provided
             if ($editor_id !== null && $old_record) {
                 $hist_query = "INSERT INTO reservation_history 
-                    (reservation_id, old_event_date, new_event_date, old_advance, new_advance, old_contact, new_contact, note, edited_by, branch_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    (reservation_id, old_event_date, new_event_date, old_advance, new_advance, old_contact, new_contact, old_category, new_category, note, edited_by, branch_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $hist_stmt = $this->conn->prepare($hist_query);
                 $hist_stmt->execute([
                     $this->id,
                     $old_record['event_date'], $this->event_date,
                     $old_record['advance_payment'], $this->advance_payment,
                     $old_record['contact_name'], $this->contact_name,
+                    $old_record['category'], $this->category,
                     $note,
                     $editor_id,
                     $branch_id ?? 1

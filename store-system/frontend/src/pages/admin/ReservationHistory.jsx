@@ -18,6 +18,7 @@ const countChanges = h => [
   String(h.old_event_date||'') !== String(h.new_event_date||''),
   parseFloat(h.old_advance||0) !== parseFloat(h.new_advance||0),
   String(h.old_contact||'')    !== String(h.new_contact||''),
+  String(h.old_category||'')   !== String(h.new_category||''),
 ].filter(Boolean).length;
 
 /* ── DiffRow ─────────────────────────────────────────────── */
@@ -95,6 +96,7 @@ const DetailDrawer = ({ record, onClose }) => {
           <DiffRow label="Event Date"       oldVal={record.old_event_date} newVal={record.new_event_date} type="date"     icon={Calendar} />
           <DiffRow label="Advance Payment"  oldVal={record.old_advance}    newVal={record.new_advance}    type="currency"  icon={TrendingUp} />
           <DiffRow label="Contact Name"     oldVal={record.old_contact}    newVal={record.new_contact}    type="text"      icon={User} />
+          <DiffRow label="Decor Type"       oldVal={record.old_category}   newVal={record.new_category}   type="text"      icon={MapPin} />
 
           {/* Note */}
           {record.note && (
@@ -157,6 +159,7 @@ const ReservationHistory = () => {
       'Old Event Date': h.old_event_date, 'New Event Date': h.new_event_date,
       'Old Advance': h.old_advance, 'New Advance': h.new_advance,
       'Old Contact': h.old_contact, 'New Contact': h.new_contact,
+      'Old Decor Type': h.old_category, 'New Decor Type': h.new_category,
       'Edited By': h.editor_name || 'Deleted User', Note: h.note || '',
       'Fields Changed': countChanges(h),
     })),
