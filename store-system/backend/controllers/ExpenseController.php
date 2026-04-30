@@ -121,6 +121,10 @@ class ExpenseController {
             $user_id = (int)$payload['id'];
             $branch_id = (int)($payload['branch_id'] ?? 1);
 
+            if ($payload['role'] === 'Admin' && !empty($data['branch_id'])) {
+                $branch_id = (int)$data['branch_id'];
+            }
+
             $query = "INSERT INTO expenses (title, amount, description, expense_date, user_id, branch_id) 
                       VALUES (:title, :amount, :description, :expense_date, :user_id, :branch_id)";
             $stmt = $this->db->prepare($query);
