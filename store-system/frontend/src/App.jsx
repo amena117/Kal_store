@@ -4,10 +4,8 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import RoleRedirect from './components/RoleRedirect';
-
 // Public Pages
 import Login from './pages/Login';
-
 // Admin Pages
 import Dashboard from './pages/admin/Dashboard';
 import Users from './pages/admin/Users';
@@ -20,14 +18,11 @@ import ProfitTracking from './pages/admin/ProfitTracking';
 import ReservationHistory from './pages/admin/ReservationHistory';
 import RentalHistory from './pages/admin/RentalHistory';
 import ExpenseHistory from './pages/admin/ExpenseHistory';
-
 // Encoder Pages
 import Categories from './pages/encoder/Categories';
 import Products from './pages/encoder/Products';
-
 // Salesperson Pages
 import POS from './pages/sales/POS';
-
 // Manager Pages
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 
