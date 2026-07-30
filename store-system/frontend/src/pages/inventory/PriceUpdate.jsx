@@ -20,7 +20,12 @@ import {
   Percent,
   Layers,
   ShieldCheck,
-  Tag
+  Tag,
+  ArrowRight,
+  HelpCircle,
+  Zap,
+  Lock,
+  Building
 } from 'lucide-react';
 
 const PriceUpdate = () => {
@@ -39,6 +44,7 @@ const PriceUpdate = () => {
   const [currentPurchasePrice, setCurrentPurchasePrice] = useState('');
   const [newPurchasePrice, setNewPurchasePrice] = useState('');
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+  const [supplierName, setSupplierName] = useState('Global Vendor Inc.');
   const [remarks, setRemarks] = useState('');
 
   // UI State
@@ -105,12 +111,25 @@ const PriceUpdate = () => {
     setNewPurchasePrice(next.toFixed(2));
   };
 
+  const applyRoundUp = () => {
+    if (!newPurchasePrice || isNaN(newPurchasePrice)) return;
+    const val = parseFloat(newPurchasePrice);
+    const rounded = Math.ceil(val);
+    setNewPurchasePrice(rounded.toFixed(2));
+  };
+
+  const handleReasonPreset = (presetText) => {
+    if (remarks.includes(presetText)) return;
+    setRemarks((prev) => (prev ? `${prev}, ${presetText}` : presetText));
+  };
+
   const handleCancel = () => {
     setSelectedProductId('');
     setProductSearch('');
     setCurrentPurchasePrice('');
     setNewPurchasePrice('');
     setEffectiveDate(new Date().toISOString().split('T')[0]);
+    setSupplierName('Global Vendor Inc.');
     setRemarks('');
     setStatusMessage(null);
     setShowProductDropdown(false);
@@ -131,11 +150,15 @@ const PriceUpdate = () => {
     setStatusMessage(null);
 
     try {
+      const fullRemarks = supplierName.trim()
+        ? `[Supplier: ${supplierName.trim()}] ${remarks.trim()}`
+        : remarks.trim();
+
       const payload = {
         product_id: parseInt(selectedProductId),
         new_price: parseFloat(newPurchasePrice),
         effective_date: effectiveDate,
-        remarks: remarks.trim()
+        remarks: fullRemarks
       };
 
       const res = await api.post('/price-updates', payload);
@@ -211,7 +234,7 @@ const PriceUpdate = () => {
           <div className="flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 shadow-inner shrink-0">
             <button
               onClick={() => setActiveTab('update')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 ${
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 cursor-pointer ${
                 activeTab === 'update'
                   ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -222,7 +245,7 @@ const PriceUpdate = () => {
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 ${
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 cursor-pointer ${
                 activeTab === 'history'
                   ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -235,50 +258,62 @@ const PriceUpdate = () => {
         </div>
       </div>
 
-      {/* KPI Stats Cards Header */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-5 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden group hover:border-indigo-500/40 transition duration-300">
+      {/* Statistics Overview (4 Horizontal Responsive Cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px]">
+        {/* Card 1: Total Revisions */}
+        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Revisions</span>
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Layers size={18} />
+            <span className="text-[14px] font-medium text-[#94A3B8]">Total Revisions</span>
+            <div className="p-2.5 rounded-xl bg-[#334155]/60 text-[#F8FAFC]">
+              <FileText size={20} />
             </div>
           </div>
-          <div className="text-2xl font-black text-white mt-3 font-mono">{historyStats.total}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Logged purchase updates</div>
+          <div className="mt-4">
+            <div className="text-[32px] font-bold text-[#F8FAFC] leading-none">{historyStats.total}</div>
+            <div className="text-[14px] text-[#94A3B8] mt-2">Logged purchase updates</div>
+          </div>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden group hover:border-rose-500/40 transition duration-300">
+        {/* Card 2: Cost Increases (Accent: Green) */}
+        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#22C55E]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cost Increases</span>
-            <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <TrendingUp size={18} />
+            <span className="text-[14px] font-medium text-[#94A3B8]">Cost Increases</span>
+            <div className="p-2.5 rounded-xl bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/20">
+              <TrendingUp size={20} />
             </div>
           </div>
-          <div className="text-2xl font-black text-rose-400 mt-3 font-mono">{historyStats.increasesCount}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Supplier price hikes</div>
+          <div className="mt-4">
+            <div className="text-[32px] font-bold text-[#22C55E] leading-none">{historyStats.increasesCount}</div>
+            <div className="text-[14px] text-[#94A3B8] mt-2">Supplier price hikes</div>
+          </div>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden group hover:border-emerald-500/40 transition duration-300">
+        {/* Card 3: Cost Decreases (Accent: Red) */}
+        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#EF4444]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cost Decreases</span>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <TrendingDown size={18} />
+            <span className="text-[14px] font-medium text-[#94A3B8]">Cost Decreases</span>
+            <div className="p-2.5 rounded-xl bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/20">
+              <TrendingDown size={20} />
             </div>
           </div>
-          <div className="text-2xl font-black text-emerald-400 mt-3 font-mono">{historyStats.decreasesCount}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Supplier discounts / cuts</div>
+          <div className="mt-4">
+            <div className="text-[32px] font-bold text-[#EF4444] leading-none">{historyStats.decreasesCount}</div>
+            <div className="text-[14px] text-[#94A3B8] mt-2">Supplier discounts / cuts</div>
+          </div>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden group hover:border-purple-500/40 transition duration-300">
+        {/* Card 4: Latest Update (Accent: Blue) */}
+        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#3B82F6]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Latest Update</span>
-            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <Tag size={18} />
+            <span className="text-[14px] font-medium text-[#94A3B8]">Latest Update</span>
+            <div className="p-2.5 rounded-xl bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20">
+              <Package size={20} />
             </div>
           </div>
-          <div className="text-base font-bold text-white mt-3 truncate">{historyStats.latestItem}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Most recent item changed</div>
+          <div className="mt-4">
+            <div className="text-[30px] font-bold text-[#3B82F6] leading-tight truncate">{historyStats.latestItem}</div>
+            <div className="text-[14px] text-[#94A3B8] mt-2 truncate">Most recent item changed</div>
+          </div>
         </div>
       </div>
 
@@ -314,27 +349,37 @@ const PriceUpdate = () => {
           {/* Left Column: Form Controls (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
             <div className="glass-card p-8 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-2xl shadow-2xl space-y-8">
+              
+              {/* Header */}
               <div className="flex items-center justify-between border-b border-white/10 pb-5">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <Package className="text-indigo-400" size={22} />
-                    Select Item & Set New Cost
+                    Select Item & Set New Purchase Cost
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">Choose an inventory product and input updated purchase rate</p>
                 </div>
-                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                <span className="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
                   Form Workspace
                 </span>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Searchable Product Dropdown */}
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Search & Select Product <span className="text-indigo-400">*</span>
-                  </label>
+              <form onSubmit={handleSubmit} className="space-y-7">
+                
+                {/* 1. Improved Product Search & Select Input */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Search size={14} className="text-indigo-400" />
+                      Search & Select Inventory Item <span className="text-indigo-400">*</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400 font-medium">Type item name to autocomplete</span>
+                  </div>
+
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 pointer-events-none">
+                      <Package size={16} />
+                    </div>
                     <input
                       type="text"
                       value={productSearch}
@@ -343,8 +388,8 @@ const PriceUpdate = () => {
                         setShowProductDropdown(true);
                       }}
                       onFocus={() => setShowProductDropdown(true)}
-                      placeholder="Type to filter inventory items by name..."
-                      className="w-full bg-slate-950/80 border border-white/15 rounded-2xl py-3.5 pl-11 pr-10 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                      placeholder="Search inventory product by name..."
+                      className="w-full bg-slate-950/90 border border-white/15 rounded-2xl py-4 pl-12 pr-10 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all shadow-inner"
                     />
                     {productSearch && (
                       <button
@@ -355,44 +400,54 @@ const PriceUpdate = () => {
                           setCurrentPurchasePrice('');
                           setNewPurchasePrice('');
                         }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
                       >
                         <X size={16} />
                       </button>
                     )}
                   </div>
 
-                  {/* Dropdown Menu */}
+                  {/* Enhanced Dropdown Menu */}
                   {showProductDropdown && (
-                    <div className="absolute z-30 left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-slate-900 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl divide-y divide-white/5">
+                    <div className="absolute z-30 left-0 right-0 mt-2 max-h-72 overflow-y-auto bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl divide-y divide-white/5 custom-scrollbar">
                       {loadingProducts ? (
-                        <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <RefreshCw size={14} className="animate-spin text-indigo-400" />
-                          Fetching products...
+                        <div className="p-5 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                          <RefreshCw size={16} className="animate-spin text-indigo-400" />
+                          <span>Searching products...</span>
                         </div>
                       ) : filteredProducts.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-slate-400">
-                          No matching items found
+                        <div className="p-5 text-center text-xs text-slate-400">
+                          No matching inventory items found
                         </div>
                       ) : (
                         filteredProducts.map((p) => (
                           <div
                             key={p.id}
                             onClick={() => selectProduct(p)}
-                            className="p-3.5 hover:bg-indigo-600/20 cursor-pointer transition-colors flex items-center justify-between group"
+                            className="p-4 hover:bg-indigo-600/20 cursor-pointer transition-all flex items-center justify-between group"
                           >
-                            <div>
-                              <div className="text-sm font-semibold text-white group-hover:text-indigo-300">
-                                {p.name}
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold text-sm group-hover:scale-105 transition-transform">
+                                {p.name.charAt(0)}
                               </div>
-                              <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
-                                <span>Stock: {p.quantity} units</span>
-                                <span>•</span>
-                                <span>Selling: ${parseFloat(p.selling_price || 0).toFixed(2)}</span>
+                              <div>
+                                <div className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
+                                  {p.name}
+                                </div>
+                                <div className="text-xs text-slate-400 flex items-center gap-2 mt-1">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    p.quantity > 10 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  }`}>
+                                    {p.quantity} in stock
+                                  </span>
+                                  <span>•</span>
+                                  <span>Selling: ${parseFloat(p.selling_price || 0).toFixed(2)}</span>
+                                </div>
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold">Current Purchase</div>
+                              <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 inline-block mt-0.5">
                                 ${parseFloat(p.arrival_price || 0).toFixed(2)}
                               </span>
                             </div>
@@ -403,54 +458,84 @@ const PriceUpdate = () => {
                   )}
                 </div>
 
-                {/* Selected Item Detail Badge */}
+                {/* Selected Item Detail Preview Card */}
                 {selectedProduct && (
-                  <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-300">
-                        <Package size={20} />
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 to-purple-950/40 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+                    <div className="flex items-center gap-3.5">
+                      <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        <Package size={22} />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-white">{selectedProduct.name}</div>
-                        <div className="text-xs text-indigo-300/80 mt-0.5">
-                          Current Stock: {selectedProduct.quantity} units | Selling Price: ${parseFloat(selectedProduct.selling_price).toFixed(2)}
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          {selectedProduct.name}
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300">
+                            ID: #{selectedProduct.id}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-300 mt-1 flex items-center gap-3">
+                          <span>Stock: <strong>{selectedProduct.quantity} units</strong></span>
+                          <span>•</span>
+                          <span>Selling Rate: <strong>${parseFloat(selectedProduct.selling_price).toFixed(2)}</strong></span>
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase font-bold text-slate-400">Current Cost</div>
-                      <div className="text-lg font-black text-emerald-400 font-mono">
-                        ${parseFloat(selectedProduct.arrival_price).toFixed(2)}
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Current Cost</div>
+                        <div className="text-lg font-black text-emerald-400 font-mono">
+                          ${parseFloat(selectedProduct.arrival_price).toFixed(2)}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition"
+                        title="Deselect Item"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* Dual Price Input Row */}
+                {/* 2. Improved Dual Price Input Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Current Price Readonly */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      Current Purchase Price
+                  {/* Current Price (Read Only) */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Lock size={12} className="text-slate-500" /> Current Purchase Rate
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-semibold bg-white/5 px-2 py-0.5 rounded">Locked</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono">$</span>
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-500">$</div>
                       <input
                         type="text"
                         readOnly
-                        value={currentPurchasePrice ? `$${currentPurchasePrice}` : '$0.00'}
-                        className="w-full bg-slate-950/60 border border-white/10 rounded-2xl py-3.5 pl-9 pr-4 text-sm font-mono font-bold text-slate-400 cursor-not-allowed"
+                        value={currentPurchasePrice ? currentPurchasePrice : '0.00'}
+                        className="w-full bg-slate-950/60 border border-white/10 rounded-2xl py-4 pl-9 pr-4 text-sm font-mono font-bold text-slate-400 cursor-not-allowed"
                       />
                     </div>
                   </div>
 
                   {/* New Price Input */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                      New Purchase Price <span className="text-indigo-400">*</span>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <DollarSign size={14} className="text-indigo-400" /> New Purchase Rate <span className="text-indigo-400">*</span>
+                      </span>
+                      {calculateMetrics.isValid && (
+                        <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                          calculateMetrics.diff > 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'
+                        }`}>
+                          {calculateMetrics.diff > 0 ? '+' : ''}${calculateMetrics.diff.toFixed(2)}
+                        </span>
+                      )}
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 font-mono font-bold">$</span>
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-extrabold text-indigo-400">$</div>
                       <input
                         type="number"
                         step="0.01"
@@ -458,26 +543,29 @@ const PriceUpdate = () => {
                         value={newPurchasePrice}
                         onChange={(e) => setNewPurchasePrice(e.target.value)}
                         placeholder="0.00"
-                        className="w-full bg-slate-950/90 border border-indigo-500/40 rounded-2xl py-3.5 pl-9 pr-4 text-sm font-mono font-extrabold text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all shadow-inner"
+                        className="w-full bg-slate-950/90 border border-indigo-500/40 rounded-2xl py-4 pl-9 pr-4 text-base font-mono font-black text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all shadow-inner"
                         required
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Quick Presets Buttons */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    <Percent size={12} className="text-indigo-400" /> Quick Price Adjust Modifiers
-                  </label>
-                  <div className="flex flex-wrap items-center gap-2">
+                {/* 3. Improved Quick Price Adjust Modifiers */}
+                <div className="space-y-2 p-4 rounded-2xl bg-slate-950/40 border border-white/5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Percent size={14} className="text-indigo-400" /> Quick Price Modifiers
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-medium">Click to calculate rate instantly</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
                     {[-10, -5, +5, +10, +15, +20].map((pct) => (
                       <button
                         key={pct}
                         type="button"
                         onClick={() => applyQuickPreset(pct)}
                         disabled={!currentPurchasePrice}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
                           pct > 0
                             ? 'bg-rose-500/10 border-rose-500/20 text-rose-300 hover:bg-rose-500/20'
                             : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
@@ -486,71 +574,99 @@ const PriceUpdate = () => {
                         {pct > 0 ? `+${pct}%` : `${pct}%`}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={applyRoundUp}
+                      disabled={!newPurchasePrice || isNaN(newPurchasePrice)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border border-indigo-500/20 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      Round Up ($)
+                    </button>
                   </div>
                 </div>
 
-                {/* Effective Date & User Details */}
+                {/* 4. Improved Effective Date & Supplier Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  {/* Effective Date */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                       <Calendar size={14} className="text-indigo-400" /> Effective Date <span className="text-indigo-400">*</span>
                     </label>
-                    <input
-                      type="date"
-                      value={effectiveDate}
-                      onChange={(e) => setEffectiveDate(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={effectiveDate}
+                        onChange={(e) => setEffectiveDate(e.target.value)}
+                        className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all"
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <User size={14} className="text-indigo-400" /> Updated By (Automatic)
+                  {/* Supplier Vendor Name */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building size={14} className="text-indigo-400" /> Supplier / Vendor Name
                     </label>
                     <input
                       type="text"
-                      readOnly
-                      value={user?.name || 'Authorized User'}
-                      className="w-full bg-slate-950/60 border border-white/10 rounded-2xl p-3.5 text-sm font-semibold text-slate-400 cursor-not-allowed"
+                      value={supplierName}
+                      onChange={(e) => setSupplierName(e.target.value)}
+                      placeholder="e.g. Global Vendor Inc., Main Warehouse"
+                      className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <FileText size={14} className="text-indigo-400" /> Supplier Notes / Reason (Optional)
-                  </label>
+                {/* 5. Improved Supplier Notes / Reason Textarea */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={14} className="text-indigo-400" /> Reason / Adjustment Remarks
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {['Vendor Rate Hike', 'Bulk Discount', 'Freight Cost Shift'].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleReasonPreset(tag)}
+                          className="text-[10px] font-semibold bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white px-2 py-0.5 rounded border border-white/10 transition cursor-pointer"
+                        >
+                          +{tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <textarea
                     rows="3"
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Enter reason for price adjustment (e.g., Raw material cost shift, vendor contract renewal...)"
-                    className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none placeholder:text-slate-600"
+                    placeholder="Enter reason for purchase price adjustment (e.g. Supplier contract renewal, commodity price increase...)"
+                    className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all resize-none placeholder:text-slate-600"
                   />
                 </div>
 
-                {/* Form Buttons */}
-                <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-3">
+                {/* Form Action Buttons */}
+                <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-4">
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-6 py-3 rounded-2xl border border-white/10 bg-slate-800/40 text-slate-300 hover:text-white hover:bg-slate-800 transition text-xs font-bold flex items-center gap-2 cursor-pointer"
+                    className="px-6 py-3.5 rounded-2xl border border-white/10 bg-slate-800/40 text-slate-300 hover:text-white hover:bg-slate-800 transition text-xs font-bold flex items-center gap-2 cursor-pointer"
                   >
                     <X size={16} />
-                    Cancel
+                    Reset
                   </button>
                   <button
                     type="submit"
                     disabled={submitting || !selectedProductId || !newPurchasePrice}
-                    className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer"
+                    className="px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold text-xs tracking-wider uppercase shadow-xl shadow-indigo-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                   >
                     {submitting ? (
-                      <RefreshCw size={16} className="animate-spin" />
+                      <RefreshCw size={18} className="animate-spin" />
                     ) : (
-                      <Save size={16} />
+                      <Save size={18} />
                     )}
-                    Save Price Update
+                    Save Price Revision
                   </button>
                 </div>
               </form>
@@ -564,10 +680,10 @@ const PriceUpdate = () => {
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <Sparkles className="text-amber-400" size={18} />
-                  Live Cost Preview
+                  Live Cost Impact Preview
                 </h3>
                 <span className="text-[10px] uppercase font-bold text-slate-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
-                  Calculated Real-Time
+                  Real-Time Calculation
                 </span>
               </div>
 
@@ -629,7 +745,7 @@ const PriceUpdate = () => {
               ) : (
                 <div className="p-8 text-center border border-dashed border-white/15 rounded-2xl space-y-2">
                   <DollarSign size={28} className="mx-auto text-slate-600" />
-                  <div className="text-sm font-semibold text-slate-400">Select item & enter new price</div>
+                  <div className="text-sm font-semibold text-slate-400">Select item & enter new rate</div>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
                     Real-time cost variation and percentage adjustments will be previewed here.
                   </p>
