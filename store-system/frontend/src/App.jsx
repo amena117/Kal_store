@@ -38,6 +38,9 @@ import AddRental from './pages/rentals/AddRental';
 import RentalDetails from './pages/rentals/RentalDetails';
 import EditRental from './pages/rentals/EditRental';
 
+// Inventory Pages
+import PriceUpdate from './pages/inventory/PriceUpdate';
+
 // Expense Pages
 import ExpenseList from './pages/expenses/ExpenseList';
 import AddExpense from './pages/expenses/AddExpense';
@@ -50,6 +53,8 @@ function App() {
           <Route path="/login" element={<Login />} />
 
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            {/* Inventory Routes */}
+            <Route path="/inventory/price-update" element={<ProtectedRoute allowedRoles={['Admin', 'Manager', 'Encoder']}><PriceUpdate /></ProtectedRoute>} />
             {/* Super Admin Routes */}
             <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['Admin']}><Dashboard /></ProtectedRoute>} />
             <Route path="/admin/users"     element={<ProtectedRoute allowedRoles={['Admin']}><Users /></ProtectedRoute>} />

@@ -61,8 +61,8 @@ class ProfitController {
             // 1. Overall Summary
             $q1 = "SELECT 
                     SUM(s.total) as revenue,
-                    SUM(p.arrival_price * s.quantity) as cost,
-                    SUM((s.selling_price - p.arrival_price) * s.quantity) as profit
+                    SUM(COALESCE(s.cost_price, p.arrival_price) * s.quantity) as cost,
+                    SUM((s.selling_price - COALESCE(s.cost_price, p.arrival_price)) * s.quantity) as profit
                    FROM sales s 
                    INNER JOIN products p ON s.product_id = p.id
                    $whereClause";
@@ -82,7 +82,7 @@ class ProfitController {
                     p.id, p.name,
                     SUM(s.quantity) as qty_sold,
                     SUM(s.total) as rx_total,
-                    SUM((s.selling_price - p.arrival_price) * s.quantity) as prod_profit
+                    SUM((s.selling_price - COALESCE(s.cost_price, p.arrival_price)) * s.quantity) as prod_profit
                    FROM sales s
                    INNER JOIN products p ON s.product_id = p.id
                    $whereClause
@@ -96,7 +96,7 @@ class ProfitController {
             // 3. Daily Trend
             $q3 = "SELECT 
                     DATE(s.date) as sale_date,
-                    SUM((s.selling_price - p.arrival_price) * s.quantity) as daily_profit,
+                    SUM((s.selling_price - COALESCE(s.cost_price, p.arrival_price)) * s.quantity) as daily_profit,
                     SUM(s.total) as daily_revenue
                    FROM sales s
                    INNER JOIN products p ON s.product_id = p.id

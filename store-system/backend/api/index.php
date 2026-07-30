@@ -1,12 +1,7 @@
 <?php
 // Set CORS headers
-$allowed_origin = 'https://yourdomain.com';
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if ($origin === $allowed_origin) {
-    header("Access-Control-Allow-Origin: $allowed_origin");
-} else {
-    header("Access-Control-Allow-Origin: $allowed_origin");
-}
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+header("Access-Control-Allow-Origin: " . ($origin ?: '*'));
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: OPTIONS,GET,POST,PUT,DELETE");
 header("Access-Control-Max-Age: 3600");
@@ -115,6 +110,13 @@ switch ($endpoint) {
         if(file_exists(__DIR__ . '/../controllers/ExpenseController.php')) {
             require_once __DIR__ . '/../controllers/ExpenseController.php';
             $controller = new ExpenseController();
+            $controller->processRequest($_SERVER['REQUEST_METHOD'], $parts);
+        }
+        break;
+    case 'price-updates':
+        if(file_exists(__DIR__ . '/../controllers/PriceUpdateController.php')) {
+            require_once __DIR__ . '/../controllers/PriceUpdateController.php';
+            $controller = new PriceUpdateController();
             $controller->processRequest($_SERVER['REQUEST_METHOD'], $parts);
         }
         break;

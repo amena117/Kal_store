@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS sales (
     product_id INT NOT NULL,
     quantity INT NOT NULL,
     selling_price DECIMAL(10,2) NOT NULL,
+    cost_price DECIMAL(10,2) DEFAULT NULL,
     total DECIMAL(10,2) NOT NULL,
     user_id INT NOT NULL,  -- Salesperson making the sale
     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

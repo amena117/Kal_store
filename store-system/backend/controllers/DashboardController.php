@@ -46,9 +46,9 @@ class DashboardController {
         $r1 = $s1->fetch(PDO::FETCH_ASSOC);
         $stats['totalRevenue'] = (float)($r1['revenue'] ?? 0);
 
-        // 2. Profit (Selling Price - Arrival Price) * Quantity sold
+        // 2. Profit (Selling Price - Cost Price) * Quantity sold
         $profitWhere = $branch_id !== null ? "WHERE s.branch_id = :branch_id" : "";
-        $q2 = "SELECT SUM((s.selling_price - p.arrival_price) * s.quantity) as profit 
+        $q2 = "SELECT SUM((s.selling_price - COALESCE(s.cost_price, p.arrival_price)) * s.quantity) as profit 
                FROM sales s 
                INNER JOIN products p ON s.product_id = p.id
                $profitWhere";

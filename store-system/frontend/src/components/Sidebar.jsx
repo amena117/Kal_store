@@ -19,7 +19,8 @@ import {
   TrendingUp,
   Receipt,
   Settings,
-  UserCog
+  UserCog,
+  DollarSign
 } from 'lucide-react';
 import api from '../services/api';
 import BranchSelector from './BranchSelector';
@@ -60,6 +61,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       { path: '/admin/sales-history', name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
       { path: '/encoder/categories',  name: 'Categories',           icon: <Tags size={20} /> },
       { path: '/admin/products',      name: 'Products',             icon: <Package size={20} /> },
+      { path: '/inventory/price-update', name: 'Price Update',      icon: <DollarSign size={20} /> },
       { path: '/admin/history',       name: 'Product Audit History',icon: <History size={20} /> },
       { path: '/admin/low-stock',     name: 'Low Stock',            icon: <Bell size={20} className={notifications.length > 0 ? "text-warning" : ""} /> },
       { path: '/add-reservation',     name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },
@@ -78,6 +80,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       { path: '/admin/sales',            name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
       { path: '/manager/sales-history',  name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
       { path: '/admin/products',         name: 'Products',             icon: <Package size={20} /> },
+      { path: '/inventory/price-update', name: 'Price Update',          icon: <DollarSign size={20} /> },
       { path: '/admin/history',          name: 'Product Audit History',icon: <History size={20} /> },
       { path: '/admin/low-stock',        name: 'Low Stock',            icon: <Bell size={20} /> },
       { path: '/add-reservation',        name: 'Add Reservation',      icon: <PlusSquare size={20} /> },
@@ -93,6 +96,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     'Encoder': [
       { path: '/encoder/categories', name: 'Categories',       icon: <Tags size={20} /> },
       { path: '/encoder/products',   name: 'Products',         icon: <Package size={20} /> },
+      { path: '/inventory/price-update', name: 'Price Update',  icon: <DollarSign size={20} /> },
       { path: '/encoder/sales',      name: 'Sales Log',        icon: <ShoppingCart size={20} /> },
       { path: '/sales/pos',          name: 'Point of Sale',    icon: <ShoppingCart size={20} /> },
       { path: '/add-reservation',    name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },

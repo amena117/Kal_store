@@ -5,9 +5,9 @@ class Database {
     // cPanel > MySQL Databases > your database name/user
     // -------------------------------------------------------
     private $host     = "localhost";
-    private $db_name  = "cpanel_username_store_db";  // e.g. john_store_db
-    private $username = "cpanel_username_dbuser";     // e.g. john_dbuser
-    private $password = "your_db_password_here";
+    private $db_name  = "store_db";
+    private $username = "root";
+    private $password = "";
     public  $conn;
 
     public function getConnection() {

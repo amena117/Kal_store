@@ -32,13 +32,15 @@ class Sale {
             }
 
             // 2. Insert sale record
+            $cost_price = (float)($product['arrival_price'] ?? 0);
             $query = "INSERT INTO " . $this->table_name . " 
-                      SET product_id=:product_id, quantity=:quantity, selling_price=:selling_price, total=:total, user_id=:user_id, actual_sale_date=:actual_sale_date, branch_id=:branch_id";
+                      SET product_id=:product_id, quantity=:quantity, selling_price=:selling_price, cost_price=:cost_price, total=:total, user_id=:user_id, actual_sale_date=:actual_sale_date, branch_id=:branch_id";
             $stmt = $this->conn->prepare($query);
 
             $stmt->bindParam(":product_id", $this->product_id);
             $stmt->bindParam(":quantity", $this->quantity);
             $stmt->bindParam(":selling_price", $this->selling_price);
+            $stmt->bindParam(":cost_price", $cost_price);
             $stmt->bindParam(":total", $this->total);
             $stmt->bindParam(":user_id", $this->user_id);
             $stmt->bindParam(":actual_sale_date", $this->actual_sale_date);
