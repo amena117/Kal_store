@@ -1,33 +1,48 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
   DollarSign,
   Package,
   Calendar,
-  FileText,
-  User,
-  History,
-  Save,
-  X,
   TrendingUp,
   TrendingDown,
   RefreshCw,
   Search,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
-  Percent,
-  Layers,
   ShieldCheck,
-  Tag,
+  Building,
+  X,
+  Save,
+  History,
   ArrowRight,
-  HelpCircle,
+  ChevronRight,
+  Tag,
+  User,
+  Info,
+  BarChart3,
   Zap,
-  Lock,
-  Building
+  Edit3,
+  Clock,
 } from 'lucide-react';
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+const money = (val) =>
+  `$${(isNaN(parseFloat(val)) ? 0 : parseFloat(val)).toFixed(2)}`;
+const todayISO = () => new Date().toISOString().split('T')[0];
+const fmtDate = (d) => {
+  if (!d) return 'â€”';
+  try {
+    return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch { return d; }
+};
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 const PriceUpdate = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
@@ -36,150 +51,118 @@ const PriceUpdate = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form State
+  // Form state
   const [selectedProductId, setSelectedProductId] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
-  
-  const [currentPurchasePrice, setCurrentPurchasePrice] = useState('');
+  const dropdownRef = useRef(null);
+
   const [newPurchasePrice, setNewPurchasePrice] = useState('');
-  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
-  const [supplierName, setSupplierName] = useState('Global Vendor Inc.');
+  const [newSellingPrice, setNewSellingPrice] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState(todayISO());
+  const [supplierName, setSupplierName] = useState('');
   const [remarks, setRemarks] = useState('');
 
-  // UI State
-  const [activeTab, setActiveTab] = useState('update'); // 'update' or 'history'
+  // UI state
+  const [activeTab, setActiveTab] = useState('update');
   const [historySearch, setHistorySearch] = useState('');
+  const [historyFilter, setHistoryFilter] = useState('all');
   const [statusMessage, setStatusMessage] = useState(null);
+  const [step, setStep] = useState(1); // 1: select product  2: set price  3: details
 
   useEffect(() => {
-    fetchProducts();
-    fetchHistory();
+    const handle = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
+        setShowProductDropdown(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
   }, []);
+
+  useEffect(() => { fetchProducts(); fetchHistory(); }, []);
 
   const fetchProducts = async () => {
     setLoadingProducts(true);
-    try {
-      const res = await api.get('/products');
-      setProducts(res.data || []);
-    } catch (err) {
-      console.error('Failed to load products', err);
-    } finally {
-      setLoadingProducts(false);
-    }
+    try { const res = await api.get('/products'); setProducts(res.data || []); }
+    catch (err) { console.error('Failed to load products', err); }
+    finally { setLoadingProducts(false); }
   };
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
-    try {
-      const res = await api.get('/price-updates');
-      setHistory(res.data || []);
-    } catch (err) {
-      console.error('Failed to load price update history', err);
-    } finally {
-      setLoadingHistory(false);
-    }
+    try { const res = await api.get('/price-updates'); setHistory(res.data || []); }
+    catch (err) { console.error('Failed to load history', err); }
+    finally { setLoadingHistory(false); }
   };
 
-  const selectedProduct = useMemo(() => {
-    return products.find((p) => String(p.id) === String(selectedProductId)) || null;
-  }, [products, selectedProductId]);
+  const selectedProduct = useMemo(
+    () => products.find((p) => String(p.id) === String(selectedProductId)) || null,
+    [products, selectedProductId]
+  );
 
   const selectProduct = (prod) => {
     setSelectedProductId(String(prod.id));
     setProductSearch(prod.name);
-    setCurrentPurchasePrice(prod.arrival_price !== undefined ? parseFloat(prod.arrival_price).toFixed(2) : '0.00');
     setNewPurchasePrice('');
+    setNewSellingPrice('');
     setShowProductDropdown(false);
+    setStep(2);
   };
 
-  const calculateMetrics = useMemo(() => {
-    if (!currentPurchasePrice || !newPurchasePrice || isNaN(newPurchasePrice)) {
-      return { diff: 0, percent: 0, isValid: false };
-    }
-    const curr = parseFloat(currentPurchasePrice);
+  const metrics = useMemo(() => {
+    const curr = parseFloat(selectedProduct?.arrival_price);
     const next = parseFloat(newPurchasePrice);
+    if (!selectedProduct || isNaN(curr) || isNaN(next) || newPurchasePrice === '')
+      return { diff: 0, percent: 0, isValid: false };
     const diff = next - curr;
     const percent = curr > 0 ? (diff / curr) * 100 : 0;
-    return { diff, percent, isValid: true };
-  }, [currentPurchasePrice, newPurchasePrice]);
+    return { diff, percent, isValid: true, curr, next };
+  }, [selectedProduct, newPurchasePrice]);
 
-  const applyQuickPreset = (percentage) => {
-    if (!currentPurchasePrice || isNaN(currentPurchasePrice)) return;
-    const curr = parseFloat(currentPurchasePrice);
-    const next = curr * (1 + percentage / 100);
-    setNewPurchasePrice(next.toFixed(2));
+  const applyQuickPreset = (pct) => {
+    if (!selectedProduct) return;
+    const curr = parseFloat(selectedProduct.arrival_price);
+    if (isNaN(curr)) return;
+    setNewPurchasePrice((curr * (1 + pct / 100)).toFixed(2));
   };
 
-  const applyRoundUp = () => {
-    if (!newPurchasePrice || isNaN(newPurchasePrice)) return;
-    const val = parseFloat(newPurchasePrice);
-    const rounded = Math.ceil(val);
-    setNewPurchasePrice(rounded.toFixed(2));
+  const handleReasonPreset = (tag) => {
+    if (remarks.includes(tag)) return;
+    setRemarks((prev) => (prev ? `${prev}, ${tag}` : tag));
   };
 
-  const handleReasonPreset = (presetText) => {
-    if (remarks.includes(presetText)) return;
-    setRemarks((prev) => (prev ? `${prev}, ${presetText}` : presetText));
-  };
-
-  const handleCancel = () => {
-    setSelectedProductId('');
-    setProductSearch('');
-    setCurrentPurchasePrice('');
-    setNewPurchasePrice('');
-    setEffectiveDate(new Date().toISOString().split('T')[0]);
-    setSupplierName('Global Vendor Inc.');
-    setRemarks('');
-    setStatusMessage(null);
-    setShowProductDropdown(false);
+  const handleReset = () => {
+    setSelectedProductId(''); setProductSearch(''); setNewPurchasePrice(''); setNewSellingPrice('');
+    setEffectiveDate(todayISO()); setSupplierName(''); setRemarks('');
+    setStatusMessage(null); setShowProductDropdown(false); setStep(1);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedProductId) {
-      setStatusMessage({ type: 'error', text: 'Please select an item to update.' });
-      return;
+    if (!selectedProductId) { setStatusMessage({ type: 'error', text: 'Choose a product first.' }); return; }
+    if (!newPurchasePrice || isNaN(newPurchasePrice) || parseFloat(newPurchasePrice) < 0) {
+      setStatusMessage({ type: 'error', text: 'Enter a valid new purchase price.' }); return;
     }
-    if (newPurchasePrice === '' || isNaN(newPurchasePrice) || parseFloat(newPurchasePrice) < 0) {
-      setStatusMessage({ type: 'error', text: 'Please enter a valid new purchase price.' });
-      return;
-    }
-
-    setSubmitting(true);
-    setStatusMessage(null);
-
+    setSubmitting(true); setStatusMessage(null);
     try {
       const fullRemarks = supplierName.trim()
-        ? `[Supplier: ${supplierName.trim()}] ${remarks.trim()}`
-        : remarks.trim();
-
-      const payload = {
-        product_id: parseInt(selectedProductId),
+        ? `[Supplier: ${supplierName.trim()}] ${remarks.trim()}` : remarks.trim();
+      const res = await api.post('/price-updates', {
+        product_id: parseInt(selectedProductId, 10),
         new_price: parseFloat(newPurchasePrice),
+        new_selling_price: newSellingPrice !== '' ? parseFloat(newSellingPrice) : null,
         effective_date: effectiveDate,
-        remarks: fullRemarks
-      };
-
-      const res = await api.post('/price-updates', payload);
-
-      if (res.data && res.data.success) {
-        setStatusMessage({ type: 'success', text: `Purchase price updated successfully for ${selectedProduct?.name || 'item'}!` });
-        handleCancel();
-        fetchProducts();
-        fetchHistory();
+        remarks: fullRemarks,
+      });
+      if (res.data?.success) {
+        setStatusMessage({ type: 'success', text: `Price updated for "${selectedProduct?.name}".` });
+        handleReset(); fetchProducts(); fetchHistory();
       } else {
-        setStatusMessage({ type: 'error', text: res.data.message || 'Failed to update purchase price.' });
+        setStatusMessage({ type: 'error', text: res.data?.message || 'Could not save the price update.' });
       }
     } catch (err) {
-      console.error('Error updating price', err);
-      setStatusMessage({
-        type: 'error',
-        text: err.response?.data?.message || 'An error occurred while saving the price update.'
-      });
-    } finally {
-      setSubmitting(false);
-    }
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || 'Something went wrong.' });
+    } finally { setSubmitting(false); }
   };
 
   const filteredProducts = useMemo(() => {
@@ -190,671 +173,540 @@ const PriceUpdate = () => {
   const filteredHistory = useMemo(() => {
     const q = historySearch.toLowerCase();
     return history.filter((item) => {
-      const prodName = (item.product_name || '').toLowerCase();
-      const updatedBy = (item.updated_by_name || '').toLowerCase();
-      const rem = (item.remarks || '').toLowerCase();
-      return prodName.includes(q) || updatedBy.includes(q) || rem.includes(q);
+      const matches =
+        (item.product_name || '').toLowerCase().includes(q) ||
+        (item.updated_by_name || '').toLowerCase().includes(q) ||
+        (item.remarks || '').toLowerCase().includes(q);
+      const diff = parseFloat(item.price_difference);
+      if (historyFilter === 'increase') return matches && diff > 0;
+      if (historyFilter === 'decrease') return matches && diff < 0;
+      return matches;
     });
-  }, [history, historySearch]);
+  }, [history, historySearch, historyFilter]);
 
-  // Analytics Stats
-  const historyStats = useMemo(() => {
-    const total = history.length;
+  const stats = useMemo(() => {
     const increases = history.filter((h) => parseFloat(h.price_difference) > 0);
     const decreases = history.filter((h) => parseFloat(h.price_difference) < 0);
-    return {
-      total,
-      increasesCount: increases.length,
-      decreasesCount: decreases.length,
-      latestItem: history[0]?.product_name || 'None'
-    };
+    return { total: history.length, increases: increases.length, decreases: decreases.length };
   }, [history]);
 
-  return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-      {/* Top Banner Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/60 via-slate-900/80 to-purple-900/60 p-8 border border-white/10 shadow-2xl backdrop-blur-xl">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+  /* â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  const s = {
+    page: { minHeight: '100%', background: 'var(--bg-gradient)', color: 'var(--text-main)', fontFamily: 'Inter,sans-serif' },
+    wrap: { maxWidth: 1080, margin: '0 auto', padding: '28px 24px' },
+    card: { background: 'var(--surface)', border: '1px solid var(--surface-border)', borderRadius: 16 },
+    input: (pl = 12) => ({
+      width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 8, padding: `9px 12px 9px ${pl}px`, fontSize: 13, color: '#f1f5f9',
+      outline: 'none', fontFamily: 'Inter,sans-serif', boxSizing: 'border-box',
+    }),
+    divider: { width: '100%', height: 1, background: 'rgba(255,255,255,0.06)', margin: '20px 0' },
+    sectionLabel: { display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 },
+  };
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold uppercase tracking-wider">
-              <Sparkles size={14} /> Inventory Cost Management
+  return (
+    <div style={s.page}>
+      <div style={s.wrap}>
+
+        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 26 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Tag size={18} color="#fff" />
+              </div>
+              <h1 style={{ fontSize: 21, fontWeight: 700, color: '#fff', margin: 0 }}>Purchase Price Manager</h1>
             </div>
-            <h1 className="text-3xl lg:text-4xl font-extrabold text-white tracking-tight flex items-center gap-3">
-              Supplier Price Update
-            </h1>
-            <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              Adjust purchase prices effortlessly when suppliers increase or lower rates. Historical sales & profit analytics remain 100% locked and protected.
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>
+              Track supplier cost changes â€” past sales &amp; profit reports are never affected.
             </p>
           </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <MiniStat label="Total changes" value={stats.total} icon={<BarChart3 size={15} />} color="#6366f1" />
+            <MiniStat label="Increases" value={stats.increases} icon={<TrendingUp size={15} />} color="#ef4444" />
+            <MiniStat label="Decreases" value={stats.decreases} icon={<TrendingDown size={15} />} color="#10b981" />
+          </div>
+        </div>
 
-          {/* Navigation Pill Switcher */}
-          <div className="flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 shadow-inner shrink-0">
-            <button
-              onClick={() => setActiveTab('update')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-                activeTab === 'update'
-                  ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <DollarSign size={16} />
-              Update Price
+        {/* â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 22 }}>
+          {[
+            { id: 'update', label: 'Update Price', icon: <Edit3 size={14} /> },
+            { id: 'history', label: `History (${stats.total})`, icon: <History size={14} /> },
+          ].map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
+              border: 'none', borderRadius: '8px 8px 0 0', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              background: activeTab === tab.id ? 'rgba(79,70,229,0.14)' : 'transparent',
+              color: activeTab === tab.id ? '#818cf8' : 'var(--text-muted)',
+              borderBottom: `2px solid ${activeTab === tab.id ? '#6366f1' : 'transparent'}`,
+              fontFamily: 'inherit', transition: 'all 0.18s',
+            }}>
+              {tab.icon}{tab.label}
             </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-                activeTab === 'history'
-                  ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <History size={16} />
-              View Price History ({historyStats.total})
+          ))}
+        </div>
+
+        {/* â”€â”€ Status banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {statusMessage && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            padding: '11px 15px', borderRadius: 10, marginBottom: 18,
+            background: statusMessage.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+            border: `1px solid ${statusMessage.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            color: statusMessage.type === 'success' ? '#34d399' : '#f87171',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              {statusMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              <span style={{ fontSize: 13, fontWeight: 500 }}>{statusMessage.text}</span>
+            </div>
+            <button onClick={() => setStatusMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.7 }}>
+              <X size={14} />
             </button>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Statistics Overview (4 Horizontal Responsive Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px]">
-        {/* Card 1: Total Revisions */}
-        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-[#94A3B8]">Total Revisions</span>
-            <div className="p-2.5 rounded-xl bg-[#334155]/60 text-[#F8FAFC]">
-              <FileText size={20} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="text-[32px] font-bold text-[#F8FAFC] leading-none">{historyStats.total}</div>
-            <div className="text-[14px] text-[#94A3B8] mt-2">Logged purchase updates</div>
-          </div>
-        </div>
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• UPDATE TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {activeTab === 'update' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 18, alignItems: 'start' }}>
 
-        {/* Card 2: Cost Increases (Accent: Green) */}
-        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#22C55E]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-[#94A3B8]">Cost Increases</span>
-            <div className="p-2.5 rounded-xl bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/20">
-              <TrendingUp size={20} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="text-[32px] font-bold text-[#22C55E] leading-none">{historyStats.increasesCount}</div>
-            <div className="text-[14px] text-[#94A3B8] mt-2">Supplier price hikes</div>
-          </div>
-        </div>
+            {/* â”€â”€ Form card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <div style={s.card}>
 
-        {/* Card 3: Cost Decreases (Accent: Red) */}
-        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#EF4444]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-[#94A3B8]">Cost Decreases</span>
-            <div className="p-2.5 rounded-xl bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/20">
-              <TrendingDown size={20} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="text-[32px] font-bold text-[#EF4444] leading-none">{historyStats.decreasesCount}</div>
-            <div className="text-[14px] text-[#94A3B8] mt-2">Supplier discounts / cuts</div>
-          </div>
-        </div>
-
-        {/* Card 4: Latest Update (Accent: Blue) */}
-        <div className="bg-[#1E293B] border border-[#334155] p-6 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#3B82F6]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-[#94A3B8]">Latest Update</span>
-            <div className="p-2.5 rounded-xl bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20">
-              <Package size={20} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="text-[30px] font-bold text-[#3B82F6] leading-tight truncate">{historyStats.latestItem}</div>
-            <div className="text-[14px] text-[#94A3B8] mt-2 truncate">Most recent item changed</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Global Status Feedback Message */}
-      {statusMessage && (
-        <div
-          className={`p-4 rounded-2xl flex items-center justify-between border backdrop-blur-xl shadow-lg transition-all ${
-            statusMessage.type === 'success'
-              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-              : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            {statusMessage.type === 'success' ? (
-              <CheckCircle2 size={22} className="text-emerald-400 shrink-0" />
-            ) : (
-              <AlertCircle size={22} className="text-rose-400 shrink-0" />
-            )}
-            <span className="text-sm font-semibold">{statusMessage.text}</span>
-          </div>
-          <button
-            onClick={() => setStatusMessage(null)}
-            className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      )}
-
-      {/* Main Tab Content */}
-      {activeTab === 'update' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Form Controls (7 cols) */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="glass-card p-8 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-2xl shadow-2xl space-y-8">
-              
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-5">
-                <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Package className="text-indigo-400" size={22} />
-                    Select Item & Set New Purchase Cost
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">Choose an inventory product and input updated purchase rate</p>
-                </div>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                  Form Workspace
-                </span>
+              {/* Step indicator */}
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                {[{ n: 1, label: 'Select Product' }, { n: 2, label: 'Set Price' }, { n: 3, label: 'Details & Save' }].map((st, i, arr) => {
+                  const active = step === st.n; const done = step > st.n;
+                  return (
+                    <React.Fragment key={st.n}>
+                      <button onClick={() => { if (done || active) setStep(st.n); }} disabled={st.n > step && !done}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 10px', background: active ? 'rgba(99,102,241,0.1)' : 'transparent', border: 'none', borderBottom: `2px solid ${active ? '#6366f1' : 'transparent'}`, cursor: (done || active) ? 'pointer' : 'default', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+                        <div style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: done ? '#10b981' : active ? '#6366f1' : 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}>
+                          {done ? <CheckCircle2 size={12} /> : st.n}
+                        </div>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, color: active ? '#a5b4fc' : done ? '#6ee7b7' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>{st.label}</span>
+                      </button>
+                      {i < arr.length - 1 && <div style={{ alignSelf: 'center', color: 'rgba(255,255,255,0.12)', flexShrink: 0 }}><ChevronRight size={13} /></div>}
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-7">
-                
-                {/* 1. Improved Product Search & Select Input */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Search size={14} className="text-indigo-400" />
-                      Search & Select Inventory Item <span className="text-indigo-400">*</span>
-                    </label>
-                    <span className="text-[11px] text-slate-400 font-medium">Type item name to autocomplete</span>
-                  </div>
+              <form onSubmit={handleSubmit} style={{ padding: 22 }}>
 
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 pointer-events-none">
-                      <Package size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      value={productSearch}
-                      onChange={(e) => {
-                        setProductSearch(e.target.value);
-                        setShowProductDropdown(true);
-                      }}
-                      onFocus={() => setShowProductDropdown(true)}
-                      placeholder="Search inventory product by name..."
-                      className="w-full bg-slate-950/90 border border-white/15 rounded-2xl py-4 pl-12 pr-10 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all shadow-inner"
-                    />
-                    {productSearch && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProductSearch('');
-                          setSelectedProductId('');
-                          setCurrentPurchasePrice('');
-                          setNewPurchasePrice('');
-                        }}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Enhanced Dropdown Menu */}
-                  {showProductDropdown && (
-                    <div className="absolute z-30 left-0 right-0 mt-2 max-h-72 overflow-y-auto bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl divide-y divide-white/5 custom-scrollbar">
-                      {loadingProducts ? (
-                        <div className="p-5 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <RefreshCw size={16} className="animate-spin text-indigo-400" />
-                          <span>Searching products...</span>
+                {/* STEP 1 */}
+                <div>
+                  <span style={s.sectionLabel}>Step 1 â€” Select a product</span>
+                  {selectedProduct ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 13px', borderRadius: 10, background: 'rgba(99,102,241,0.09)', border: '1px solid rgba(99,102,241,0.28)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Package size={16} color="#818cf8" />
                         </div>
-                      ) : filteredProducts.length === 0 ? (
-                        <div className="p-5 text-center text-xs text-slate-400">
-                          No matching inventory items found
-                        </div>
-                      ) : (
-                        filteredProducts.map((p) => (
-                          <div
-                            key={p.id}
-                            onClick={() => selectProduct(p)}
-                            className="p-4 hover:bg-indigo-600/20 cursor-pointer transition-all flex items-center justify-between group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold text-sm group-hover:scale-105 transition-transform">
-                                {p.name.charAt(0)}
-                              </div>
-                              <div>
-                                <div className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
-                                  {p.name}
-                                </div>
-                                <div className="text-xs text-slate-400 flex items-center gap-2 mt-1">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    p.quantity > 10 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                  }`}>
-                                    {p.quantity} in stock
-                                  </span>
-                                  <span>•</span>
-                                  <span>Selling: ${parseFloat(p.selling_price || 0).toFixed(2)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-[10px] text-slate-400 uppercase font-bold">Current Purchase</div>
-                              <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 inline-block mt-0.5">
-                                ${parseFloat(p.arrival_price || 0).toFixed(2)}
-                              </span>
-                            </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProduct.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {selectedProduct.quantity} in stock &middot; Cost: <strong style={{ color: '#a5b4fc' }}>{money(selectedProduct.arrival_price)}</strong>
                           </div>
-                        ))
+                        </div>
+                      </div>
+                      <button type="button" onClick={handleReset} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}>Change</button>
+                    </div>
+                  ) : (
+                    <div ref={dropdownRef} style={{ position: 'relative' }}>
+                      <div style={{ position: 'relative' }}>
+                        <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                        <input id="product-search" type="text" value={productSearch} autoComplete="off"
+                          onChange={(e) => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                          onFocus={() => setShowProductDropdown(true)}
+                          placeholder="Type to search productsâ€¦"
+                          style={{ ...s.input(38), border: '1px solid rgba(255,255,255,0.12)' }}
+                        />
+                        {productSearch && (
+                          <button type="button" onClick={() => { setProductSearch(''); setSelectedProductId(''); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}>
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
+                      {showProductDropdown && (
+                        <div style={{ position: 'absolute', zIndex: 30, left: 0, right: 0, top: 'calc(100% + 5px)', maxHeight: 255, overflowY: 'auto', background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
+                          {loadingProducts ? (
+                            <div style={{ padding: 18, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                              <RefreshCw size={13} style={{ animation: 'pu-spin 1s linear infinite' }} /> Loadingâ€¦
+                            </div>
+                          ) : filteredProducts.length === 0 ? (
+                            <div style={{ padding: 18, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>No products match "{productSearch}"</div>
+                          ) : filteredProducts.map((p) => (
+                            <button type="button" key={p.id} onClick={() => selectProduct(p)}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 13px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.12s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99,102,241,0.1)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{p.quantity} in stock &middot; sells for {money(p.selling_price)}</div>
+                              </div>
+                              <div style={{ flexShrink: 0, fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#34d399' }}>{money(p.arrival_price)}</div>
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Selected Item Detail Preview Card */}
-                {selectedProduct && (
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 to-purple-950/40 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-4 shadow-lg">
-                    <div className="flex items-center gap-3.5">
-                      <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                        <Package size={22} />
+                {/* STEP 2 */}
+                {step >= 2 && (
+                  <>
+                    <div style={s.divider} />
+                    <span style={s.sectionLabel}>Step 2 â€” Set the new purchase price</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 5 }}>Current cost</div>
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: 14 }}>$</span>
+                          <input readOnly value={selectedProduct ? parseFloat(selectedProduct.arrival_price || 0).toFixed(2) : '0.00'}
+                            style={{ ...s.input(26), color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', cursor: 'default' }} />
+                        </div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-white flex items-center gap-2">
-                          {selectedProduct.name}
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300">
-                            ID: #{selectedProduct.id}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-300 mt-1 flex items-center gap-3">
-                          <span>Stock: <strong>{selectedProduct.quantity} units</strong></span>
-                          <span>•</span>
-                          <span>Selling Rate: <strong>${parseFloat(selectedProduct.selling_price).toFixed(2)}</strong></span>
+                        <div style={{ fontSize: 11, color: '#a5b4fc', fontWeight: 600, marginBottom: 5 }}>New cost <span style={{ color: '#f87171' }}>*</span></div>
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'monospace', color: '#818cf8', fontSize: 14, fontWeight: 700 }}>$</span>
+                          <input id="new-price" type="number" step="0.01" min="0" required
+                            value={newPurchasePrice} disabled={!selectedProduct}
+                            onChange={(e) => { setNewPurchasePrice(e.target.value); if (e.target.value && step < 3) setStep(3); }}
+                            placeholder="0.00"
+                            style={{ ...s.input(26), border: '1px solid rgba(99,102,241,0.45)', fontWeight: 700, color: '#fff' }} />
                         </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="text-[10px] uppercase font-bold text-slate-400">Current Cost</div>
-                        <div className="text-lg font-black text-emerald-400 font-mono">
-                          ${parseFloat(selectedProduct.arrival_price).toFixed(2)}
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 5 }}>Current Selling Price</div>
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: 14 }}>$</span>
+                          <input readOnly value={selectedProduct ? parseFloat(selectedProduct.selling_price || 0).toFixed(2) : '0.00'}
+                            style={{ ...s.input(26), color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', cursor: 'default' }} />
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleCancel}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition"
-                        title="Deselect Item"
-                      >
-                        <X size={16} />
-                      </button>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 5 }}>New Selling Price</div>
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'monospace', color: '#34d399', fontSize: 14, fontWeight: 700 }}>$</span>
+                          <input id="new-selling-price" type="number" step="0.01" min="0"
+                            value={newSellingPrice} disabled={!selectedProduct}
+                            onChange={(e) => setNewSellingPrice(e.target.value)}
+                            placeholder="0.00 (optional)"
+                            style={{ ...s.input(26), border: '1px solid rgba(16,185,129,0.45)', fontWeight: 700, color: '#fff' }} />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                    {/* Quick presets */}
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Zap size={12} /> Quick adjust
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {[-15, -10, -5, 5, 10, 15, 20].map((pct) => (
+                          <QuickBtn key={pct} label={pct > 0 ? `+${pct}%` : `${pct}%`} color={pct > 0 ? '#ef4444' : '#10b981'}
+                            onClick={() => applyQuickPreset(pct)} disabled={!selectedProduct} />
+                        ))}
+                        <QuickBtn label="Round up" color="#6366f1"
+                          onClick={() => { if (newPurchasePrice && !isNaN(newPurchasePrice)) setNewPurchasePrice(Math.ceil(parseFloat(newPurchasePrice)).toFixed(2)); }}
+                          disabled={!newPurchasePrice} />
+                      </div>
+                    </div>
+                    {step === 2 && !metrics.isValid && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-muted)', fontSize: 11.5, marginTop: 14 }}>
+                        <Info size={12} /> Enter a new price above to continue to step 3.
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {/* 2. Improved Dual Price Input Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Current Price (Read Only) */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Lock size={12} className="text-slate-500" /> Current Purchase Rate
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-semibold bg-white/5 px-2 py-0.5 rounded">Locked</span>
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-500">$</div>
-                      <input
-                        type="text"
-                        readOnly
-                        value={currentPurchasePrice ? currentPurchasePrice : '0.00'}
-                        className="w-full bg-slate-950/60 border border-white/10 rounded-2xl py-4 pl-9 pr-4 text-sm font-mono font-bold text-slate-400 cursor-not-allowed"
-                      />
+                {/* STEP 3 */}
+                {step >= 3 && (
+                  <>
+                    <div style={s.divider} />
+                    <span style={s.sectionLabel}>Step 3 â€” Fill in details &amp; save</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                      <div>
+                        <label htmlFor="effective-date" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#e2e8f0', marginBottom: 5 }}>
+                          Effective date <span style={{ color: '#f87171' }}>*</span>
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <Calendar size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                          <input id="effective-date" type="date" required value={effectiveDate}
+                            onChange={(e) => setEffectiveDate(e.target.value)}
+                            style={s.input(34)} />
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="supplier" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#e2e8f0', marginBottom: 5 }}>
+                          Supplier <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional)</span>
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <Building size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                          <input id="supplier" type="text" value={supplierName}
+                            onChange={(e) => setSupplierName(e.target.value)}
+                            placeholder="Vendor name" style={s.input(34)} />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* New Price Input */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <DollarSign size={14} className="text-indigo-400" /> New Purchase Rate <span className="text-indigo-400">*</span>
-                      </span>
-                      {calculateMetrics.isValid && (
-                        <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
-                          calculateMetrics.diff > 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'
-                        }`}>
-                          {calculateMetrics.diff > 0 ? '+' : ''}${calculateMetrics.diff.toFixed(2)}
-                        </span>
-                      )}
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-extrabold text-indigo-400">$</div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={newPurchasePrice}
-                        onChange={(e) => setNewPurchasePrice(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-slate-950/90 border border-indigo-500/40 rounded-2xl py-4 pl-9 pr-4 text-base font-mono font-black text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all shadow-inner"
-                        required
-                      />
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 7, marginBottom: 7 }}>
+                        <label htmlFor="remarks" style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0' }}>
+                          Reason <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional)</span>
+                        </label>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          {['Supplier tariff', 'Volume discount', 'Freight cost', 'Currency change'].map((tag) => (
+                            <button key={tag} type="button" onClick={() => handleReasonPreset(tag)}
+                              style={{ fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 5, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.13s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99,102,241,0.14)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            >+ {tag}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <textarea id="remarks" rows="3" value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                        placeholder="Why is this price changing? (e.g. new supplier contract, seasonal tariffâ€¦)"
+                        style={{ ...s.input(), resize: 'none', lineHeight: 1.6, paddingTop: 10, paddingBottom: 10 }} />
                     </div>
-                  </div>
-                </div>
-
-                {/* 3. Improved Quick Price Adjust Modifiers */}
-                <div className="space-y-2 p-4 rounded-2xl bg-slate-950/40 border border-white/5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Percent size={14} className="text-indigo-400" /> Quick Price Modifiers
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-medium">Click to calculate rate instantly</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {[-10, -5, +5, +10, +15, +20].map((pct) => (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => applyQuickPreset(pct)}
-                        disabled={!currentPurchasePrice}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
-                          pct > 0
-                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-300 hover:bg-rose-500/20'
-                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
-                        }`}
-                      >
-                        {pct > 0 ? `+${pct}%` : `${pct}%`}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <button type="button" onClick={handleReset}
+                        style={{ padding: '8px 17px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >Reset</button>
+                      <button type="submit" disabled={submitting || !selectedProductId || !newPurchasePrice}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', opacity: (submitting || !selectedProductId || !newPurchasePrice) ? 0.45 : 1, transition: 'all 0.18s', boxShadow: '0 4px 14px rgba(99,102,241,0.35)', fontFamily: 'inherit' }}>
+                        {submitting ? <RefreshCw size={14} style={{ animation: 'pu-spin 1s linear infinite' }} /> : <Save size={14} />}
+                        Save price update
                       </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={applyRoundUp}
-                      disabled={!newPurchasePrice || isNaN(newPurchasePrice)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border border-indigo-500/20 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      Round Up ($)
-                    </button>
-                  </div>
-                </div>
-
-                {/* 4. Improved Effective Date & Supplier Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Effective Date */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Calendar size={14} className="text-indigo-400" /> Effective Date <span className="text-indigo-400">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={effectiveDate}
-                        onChange={(e) => setEffectiveDate(e.target.value)}
-                        className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all"
-                        required
-                      />
                     </div>
-                  </div>
-
-                  {/* Supplier Vendor Name */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Building size={14} className="text-indigo-400" /> Supplier / Vendor Name
-                    </label>
-                    <input
-                      type="text"
-                      value={supplierName}
-                      onChange={(e) => setSupplierName(e.target.value)}
-                      placeholder="e.g. Global Vendor Inc., Main Warehouse"
-                      className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* 5. Improved Supplier Notes / Reason Textarea */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <FileText size={14} className="text-indigo-400" /> Reason / Adjustment Remarks
-                    </label>
-                    <div className="flex items-center gap-1">
-                      {['Vendor Rate Hike', 'Bulk Discount', 'Freight Cost Shift'].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => handleReasonPreset(tag)}
-                          className="text-[10px] font-semibold bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white px-2 py-0.5 rounded border border-white/10 transition cursor-pointer"
-                        >
-                          +{tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <textarea
-                    rows="3"
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Enter reason for purchase price adjustment (e.g. Supplier contract renewal, commodity price increase...)"
-                    className="w-full bg-slate-950/80 border border-white/15 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-all resize-none placeholder:text-slate-600"
-                  />
-                </div>
-
-                {/* Form Action Buttons */}
-                <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="px-6 py-3.5 rounded-2xl border border-white/10 bg-slate-800/40 text-slate-300 hover:text-white hover:bg-slate-800 transition text-xs font-bold flex items-center gap-2 cursor-pointer"
-                  >
-                    <X size={16} />
-                    Reset
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting || !selectedProductId || !newPurchasePrice}
-                    className="px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold text-xs tracking-wider uppercase shadow-xl shadow-indigo-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-                  >
-                    {submitting ? (
-                      <RefreshCw size={18} className="animate-spin" />
-                    ) : (
-                      <Save size={18} />
-                    )}
-                    Save Price Revision
-                  </button>
-                </div>
+                  </>
+                )}
               </form>
             </div>
-          </div>
 
-          {/* Right Column: Live Comparison Widget & Protection Info (5 cols) */}
-          <div className="lg:col-span-5 space-y-6">
-            {/* Live Price Comparison Card */}
-            <div className="glass-card p-8 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-2xl shadow-2xl relative overflow-hidden space-y-6">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Sparkles className="text-amber-400" size={18} />
-                  Live Cost Impact Preview
-                </h3>
-                <span className="text-[10px] uppercase font-bold text-slate-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
-                  Real-Time Calculation
-                </span>
+            {/* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Live preview */}
+              <div style={{ ...s.card, padding: 18 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <BarChart3 size={12} /> Live Preview
+                </div>
+                {metrics.isValid ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <PriceBox label="Old" value={money(metrics.curr)} muted />
+                      <ArrowRight size={14} color="#6366f1" style={{ flexShrink: 0 }} />
+                      <PriceBox label="New" value={money(metrics.next)} accent />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 13px', borderRadius: 9, marginBottom: 10, background: metrics.diff > 0 ? 'rgba(239,68,68,0.09)' : metrics.diff < 0 ? 'rgba(16,185,129,0.09)' : 'rgba(255,255,255,0.04)', border: `1px solid ${metrics.diff > 0 ? 'rgba(239,68,68,0.22)' : metrics.diff < 0 ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.07)'}` }}>
+                      <div>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net change</div>
+                        <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: metrics.diff > 0 ? '#f87171' : metrics.diff < 0 ? '#34d399' : '#fff', marginTop: 3 }}>
+                          {metrics.diff > 0 ? '+' : ''}{money(metrics.diff)}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end', color: metrics.diff > 0 ? '#f87171' : metrics.diff < 0 ? '#34d399' : '#fff', fontWeight: 800, fontSize: 15 }}>
+                          {metrics.diff > 0 ? <TrendingUp size={15} /> : metrics.diff < 0 ? <TrendingDown size={15} /> : null}
+                          {metrics.percent > 0 ? '+' : ''}{metrics.percent.toFixed(1)}%
+                        </div>
+                        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 3 }}>{metrics.diff > 0 ? 'Cost increase' : metrics.diff < 0 ? 'Cost reduction' : 'No change'}</div>
+                      </div>
+                    </div>
+                    <ImpactPill percent={Math.abs(metrics.percent)} isIncrease={metrics.diff > 0} />
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 14px', border: '1px dashed rgba(255,255,255,0.09)', borderRadius: 9, textAlign: 'center' }}>
+                    <DollarSign size={26} color="rgba(255,255,255,0.13)" style={{ marginBottom: 9 }} />
+                    <p style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.55, margin: 0 }}>
+                      Select a product and enter a price to see the impact here.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {calculateMetrics.isValid ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-slate-950/80 border border-white/10 text-center">
-                      <div className="text-[11px] font-bold text-slate-400 uppercase">Old Purchase Price</div>
-                      <div className="text-xl font-black text-slate-300 font-mono mt-1">
-                        ${parseFloat(currentPurchasePrice).toFixed(2)}
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 text-center">
-                      <div className="text-[11px] font-bold text-indigo-300 uppercase">New Purchase Price</div>
-                      <div className="text-xl font-black text-indigo-400 font-mono mt-1">
-                        ${parseFloat(newPurchasePrice).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Impact Highlight Box */}
-                  <div
-                    className={`p-5 rounded-2xl border backdrop-blur-xl flex items-center justify-between ${
-                      calculateMetrics.diff > 0
-                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                        : calculateMetrics.diff < 0
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                        : 'bg-slate-800/40 border-white/10 text-slate-300'
-                    }`}
-                  >
-                    <div className="space-y-0.5">
-                      <div className="text-xs uppercase font-bold tracking-wider">Unit Cost Impact</div>
-                      <div className="text-2xl font-black font-mono">
-                        {calculateMetrics.diff > 0 ? '+' : ''}${calculateMetrics.diff.toFixed(2)}
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
-                          calculateMetrics.diff > 0
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                            : calculateMetrics.diff < 0
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-white/10 text-white'
-                        }`}
-                      >
-                        {calculateMetrics.diff > 0 ? (
-                          <TrendingUp size={14} />
-                        ) : calculateMetrics.diff < 0 ? (
-                          <TrendingDown size={14} />
-                        ) : null}
-                        {calculateMetrics.percent > 0 ? '+' : ''}{calculateMetrics.percent.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center border border-dashed border-white/15 rounded-2xl space-y-2">
-                  <DollarSign size={28} className="mx-auto text-slate-600" />
-                  <div className="text-sm font-semibold text-slate-400">Select item & enter new rate</div>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    Real-time cost variation and percentage adjustments will be previewed here.
-                  </p>
-                </div>
-              )}
-
-              {/* Security & Profit Locking Guarantee Badge */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 to-teal-950/40 border border-emerald-500/30 space-y-3">
-                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                  <ShieldCheck size={16} /> Historical Profit Protection
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Saving this price update modifies future inventory costs. All past sales and historical profit reports remain <strong>strictly preserved and unaffected</strong>.
+              {/* Safety note */}
+              <div style={{ display: 'flex', gap: 10, padding: '13px 15px', borderRadius: 12, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
+                <ShieldCheck size={16} color="#34d399" style={{ flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6, margin: 0 }}>
+                  <strong style={{ color: '#6ee7b7' }}>Safe to use.</strong> Past sales and profit reports are never modified â€” only new stock going forward is affected.
                 </p>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Price Update History Table Content */
-        <div className="glass-card p-8 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-2xl shadow-2xl space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-white/10 pb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <History className="text-indigo-400" size={20} />
-                Price Update History
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Audit log of all purchase price revisions</p>
-            </div>
 
-            {/* Search Filter */}
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search item, user, or remarks..."
-                className="w-full bg-[#0f172a] border border-white/15 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
-              />
-            </div>
-          </div>
-
-          {loadingHistory ? (
-            <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
-              <RefreshCw size={24} className="animate-spin text-indigo-400" />
-              <span>Loading price history records...</span>
-            </div>
-          ) : filteredHistory.length === 0 ? (
-            <div className="p-12 text-center text-slate-400">
-              No price update history found matching your search.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-slate-400 bg-slate-950/50">
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Item</th>
-                    <th className="p-3 text-right">Previous Price</th>
-                    <th className="p-3 text-right">New Price</th>
-                    <th className="p-3 text-right">Difference</th>
-                    <th className="p-3">Updated By</th>
-                    <th className="p-3">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10 text-sm">
-                  {filteredHistory.map((row) => {
-                    const diff = parseFloat(row.price_difference);
-                    return (
-                      <tr key={row.id} className="hover:bg-white/5 transition-colors">
-                        <td className="p-3 text-xs text-slate-400 whitespace-nowrap">
-                          {row.effective_date || row.created_at?.split(' ')[0]}
-                        </td>
-                        <td className="p-3 font-semibold text-white">{row.product_name}</td>
-                        <td className="p-3 text-right font-mono text-slate-400">
-                          ${parseFloat(row.previous_price).toFixed(2)}
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-white">
-                          ${parseFloat(row.new_price).toFixed(2)}
-                        </td>
-                        <td className="p-3 text-right font-mono font-semibold whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs ${
-                              diff > 0
-                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                : diff < 0
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                : 'bg-slate-500/10 text-slate-400'
-                            }`}
-                          >
-                            {diff > 0 ? '+' : ''}${diff.toFixed(2)}
+              {/* Recent updates */}
+              {history.slice(0, 4).length > 0 && (
+                <div style={{ ...s.card, padding: '15px 17px' }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clock size={12} /> Recent updates
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {history.slice(0, 4).map((h) => {
+                      const diff = parseFloat(h.price_difference);
+                      return (
+                        <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, padding: '7px 9px', borderRadius: 7, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.product_name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{fmtDate(h.effective_date || h.created_at?.split(' ')[0])}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 700, color: diff > 0 ? '#f87171' : diff < 0 ? '#34d399' : '#94a3b8', flexShrink: 0 }}>
+                            {diff > 0 ? '+' : ''}{money(diff)}
                           </span>
-                        </td>
-                        <td className="p-3 text-xs text-white/90">{row.updated_by_name}</td>
-                        <td className="p-3 text-xs text-slate-400 max-w-xs truncate">
-                          {row.remarks || '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• HISTORY TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {activeTab === 'history' && (
+          <div style={s.card}>
+            {/* toolbar */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '15px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div>
+                <h2 style={{ fontSize: 14.5, fontWeight: 700, color: '#fff', margin: 0 }}>Price Update History</h2>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>All supplier cost changes, most recent first</p>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7 }}>
+                <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.22)', borderRadius: 7, padding: 3 }}>
+                  {[
+                    { key: 'all', label: `All (${stats.total})` },
+                    { key: 'increase', label: `â†‘ Up (${stats.increases})`, col: '#f87171' },
+                    { key: 'decrease', label: `â†“ Down (${stats.decreases})`, col: '#34d399' },
+                  ].map((f) => (
+                    <button key={f.key} onClick={() => setHistoryFilter(f.key)}
+                      style={{ padding: '4px 11px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: historyFilter === f.key ? '#4f46e5' : 'transparent', color: historyFilter === f.key ? '#fff' : (f.col || 'var(--text-muted)'), transition: 'all 0.13s', fontFamily: 'inherit' }}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input type="text" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="Searchâ€¦" style={{ ...s.input(30), width: 190, fontSize: 11.5, padding: '6px 10px 6px 30px' }} />
+                </div>
+                <button onClick={fetchHistory}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <RefreshCw size={11} style={loadingHistory ? { animation: 'pu-spin 1s linear infinite' } : {}} /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {loadingHistory ? (
+              <div style={{ padding: '56px 0', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <RefreshCw size={20} color="#6366f1" style={{ animation: 'pu-spin 1s linear infinite' }} />
+                <span style={{ fontSize: 13 }}>Loading historyâ€¦</span>
+              </div>
+            ) : filteredHistory.length === 0 ? (
+              <div style={{ padding: '56px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Info size={26} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.35 }} />
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>No records found</div>
+                <p style={{ fontSize: 12 }}>Try a different search term or filter.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      {[['Date', 'left'], ['Product', 'left'], ['Old Cost', 'right'], ['New Cost', 'right'], ['Change', 'right'], ['Updated by', 'left'], ['Notes', 'left']].map(([h, align]) => (
+                        <th key={h} style={{ padding: '9px 13px', textAlign: align, fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHistory.map((row) => {
+                      const diff = parseFloat(row.price_difference);
+                      return (
+                        <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.1s' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.025)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                          <td style={{ padding: '11px 13px', fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtDate(row.effective_date || row.created_at?.split(' ')[0])}</td>
+                          <td style={{ padding: '11px 13px' }}><span style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{row.product_name}</span></td>
+                          <td style={{ padding: '11px 13px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{money(row.previous_price)}</td>
+                          <td style={{ padding: '11px 13px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#fff' }}>{money(row.new_price)}</td>
+                          <td style={{ padding: '11px 13px', textAlign: 'right' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 5, fontSize: 11, fontFamily: 'monospace', fontWeight: 700, background: diff > 0 ? 'rgba(239,68,68,0.1)' : diff < 0 ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.05)', color: diff > 0 ? '#f87171' : diff < 0 ? '#34d399' : '#94a3b8', border: `1px solid ${diff > 0 ? 'rgba(239,68,68,0.2)' : diff < 0 ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.07)'}` }}>
+                              {diff > 0 ? <TrendingUp size={10} /> : diff < 0 ? <TrendingDown size={10} /> : null}
+                              {diff > 0 ? '+' : ''}{money(diff)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '11px 13px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(99,102,241,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <User size={10} color="#818cf8" />
+                              </div>
+                              <span style={{ fontSize: 12, color: '#cbd5e1' }}>{row.updated_by_name || 'â€”'}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '11px 13px', fontSize: 11, color: 'var(--text-muted)', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.remarks || ''}>{row.remarks || <span style={{ opacity: 0.4 }}>â€”</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes pu-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+const MiniStat = ({ label, value, icon, color }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px', borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
+    <div style={{ width: 26, height: 26, borderRadius: 6, background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>{icon}</div>
+    <div>
+      <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontWeight: 500, marginTop: 2 }}>{label}</div>
+    </div>
+  </div>
+);
+
+const PriceBox = ({ label, value, muted, accent }) => (
+  <div style={{ flex: 1, textAlign: 'center', padding: '9px 10px', borderRadius: 8, background: accent ? 'rgba(99,102,241,0.09)' : 'rgba(255,255,255,0.03)', border: `1px solid ${accent ? 'rgba(99,102,241,0.28)' : 'rgba(255,255,255,0.07)'}` }}>
+    <div style={{ fontSize: 10, color: accent ? '#a5b4fc' : 'var(--text-muted)', fontWeight: 600, marginBottom: 3 }}>{label}</div>
+    <div style={{ fontSize: 15, fontFamily: 'monospace', fontWeight: 800, color: accent ? '#c7d2fe' : 'var(--text-muted)' }}>{value}</div>
+  </div>
+);
+
+const ImpactPill = ({ percent, isIncrease }) => {
+  const level = percent < 5 ? 'Minor' : percent < 15 ? 'Moderate' : 'Significant';
+  const color = isIncrease
+    ? (percent < 5 ? '#fb923c' : percent < 15 ? '#f87171' : '#ef4444')
+    : (percent < 5 ? '#4ade80' : percent < 15 ? '#34d399' : '#10b981');
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+        Impact: <strong style={{ color }}>{level}</strong> ({percent.toFixed(1)}% {isIncrease ? 'increase' : 'reduction'})
+      </span>
+    </div>
+  );
+};
+
+const QuickBtn = ({ label, color, onClick, disabled }) => (
+  <button type="button" onClick={onClick} disabled={disabled}
+    style={{ padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 600, background: `${color}12`, border: `1px solid ${color}3a`, color, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1, transition: 'all 0.13s', fontFamily: 'inherit' }}
+    onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = `${color}26`; }}
+    onMouseLeave={(e) => { e.currentTarget.style.background = `${color}12`; }}>
+    {label}
+  </button>
+);
 
 export default PriceUpdate;

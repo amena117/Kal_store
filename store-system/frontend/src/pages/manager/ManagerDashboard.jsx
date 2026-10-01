@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -10,7 +10,12 @@ import {
   AlertTriangle,
   RefreshCw,
   PlusSquare,
-  ClipboardList
+  ClipboardList,
+  Building2,
+  Receipt,
+  ChevronRight,
+  Sparkles,
+  DollarSign
 } from 'lucide-react';
 
 const ManagerDashboard = () => {
@@ -42,131 +47,212 @@ const ManagerDashboard = () => {
 
   useEffect(() => { fetchData(); }, [activeBranchId]);
 
-  const quickLinks = [
-    { label: 'View Sales Log',    icon: <ShoppingCart size={20} />, path: '/admin/sales',     color: 'var(--color-secondary)' },
-    { label: 'View Products',     icon: <Package size={20} />,     path: '/admin/products',   color: 'var(--color-primary)'   },
-    { label: 'Reservations',      icon: <Calendar size={20} />,    path: '/reservations',     color: 'var(--color-warning)'   },
-    { label: 'Add Reservation',   icon: <PlusSquare size={20} />,  path: '/add-reservation',  color: 'var(--color-success)'   },
-    { label: 'Sales Edit Audit',  icon: <ClipboardList size={20}/>,path: '/manager/sales-history', color: 'var(--color-primary)' },
-    { label: 'Low Stock Items',   icon: <AlertTriangle size={20}/>,path: '/admin/low-stock',  color: 'var(--color-warning)'   },
-  ];
-
   return (
-    <div className="animate-fade-in-up">
+    <div className="animate-fade-in-up space-y-6 pb-8">
       {/* Header */}
-      <div className="page-header mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Manager Dashboard</h1>
-          <p className="text-muted">Welcome back, {user?.name} 👋</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Sparkles size={11} /> Manager Station
+            </span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Manager Dashboard</h1>
+          <p className="text-muted text-sm flex items-center gap-2 mt-1">
+            <span>Welcome back,</span> 
+            <span className="text-white font-semibold">{user?.name}</span>
+            {user?.branch_name && (
+              <>
+                <span className="text-muted/40">•</span>
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <Building2 size={13} /> {user.branch_name}
+                </span>
+              </>
+            )}
+          </p>
         </div>
-        <button onClick={fetchData} className="btn btn-primary btn-sm">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button onClick={fetchData} className="btn btn-secondary text-sm py-2 px-3.5" title="Refresh">
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
+          <Link to="/sales/pos" className="btn btn-primary text-sm py-2 px-4 shadow-lg shadow-indigo-500/25">
+            <ShoppingCart size={15} />
+            <span>Open Register</span>
+          </Link>
+        </div>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid-cards mb-6">
-        <div className="glass-card flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted uppercase font-semibold">Total Revenue</p>
-            <h2 className="text-2xl font-bold text-secondary mt-1">
-              ${parseFloat(stats.totalRevenue || 0).toFixed(2)}
-            </h2>
+      {/* KPI Stat Cards (Matching Rental/Audit History Style) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        {/* Total Revenue */}
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366F1' }}>
+            <DollarSign size={20} />
           </div>
-          <div className="bg-secondary" style={{ background: 'rgba(99,102,241,0.2)', padding: '12px', borderRadius: '50%' }}>
-            <TrendingUp size={24} style={{ color: 'var(--color-secondary)' }} />
-          </div>
-        </div>
-
-        <div className="glass-card flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted uppercase font-semibold">Items Sold</p>
-            <h2 className="text-2xl font-bold text-main mt-1">{stats.totalSales || 0}</h2>
-          </div>
-          <div style={{ background: 'rgba(16,185,129,0.2)', padding: '12px', borderRadius: '50%' }}>
-            <ShoppingCart size={24} style={{ color: 'var(--color-success)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.1, color: '#FFFFFF', letterSpacing: '-0.02em' }} className="truncate font-mono">
+              ${parseFloat(stats.totalRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              <span>Total Revenue</span>
+            </div>
           </div>
         </div>
 
-        <div className="glass-card flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted uppercase font-semibold">Reservations</p>
-            <h2 className="text-2xl font-bold text-main mt-1">{reservations.length}</h2>
+        {/* Items Sold */}
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>
+            <ShoppingCart size={20} />
           </div>
-          <div style={{ background: 'rgba(245,158,11,0.2)', padding: '12px', borderRadius: '50%' }}>
-            <Calendar size={24} style={{ color: 'var(--color-warning)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.1, color: '#FFFFFF', letterSpacing: '-0.02em' }} className="truncate font-mono">
+              {(stats.totalSales || 0).toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              <span>Items Sold</span>
+            </div>
           </div>
         </div>
 
-        <div className="glass-card flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted uppercase font-semibold">Low Stock Items</p>
-            <h2 className={`text-2xl font-bold mt-1 ${lowStock.length > 0 ? 'text-warning' : 'text-main'}`}>
+        {/* Active Reservations */}
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8' }}>
+            <Calendar size={20} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.1, color: '#FFFFFF', letterSpacing: '-0.02em' }} className="truncate font-mono">
+              {reservations.length}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              <span>Decor Bookings</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Low Stock Items */}
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' }}>
+            <AlertTriangle size={20} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.1, color: lowStock.length > 0 ? '#F59E0B' : '#FFFFFF', letterSpacing: '-0.02em' }} className="truncate font-mono">
               {lowStock.length}
-            </h2>
-          </div>
-          <div style={{ background: 'rgba(245,158,11,0.2)', padding: '12px', borderRadius: '50%' }}>
-            <AlertTriangle size={24} style={{ color: 'var(--color-warning)' }} />
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              <span>Low Stock Alerts</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Links */}
-      <div className="glass-card mb-6">
-        <h2 className="text-lg font-bold mb-4">Quick Actions</h2>
-        <div className="flex flex-wrap gap-3">
-          {quickLinks.map(link => (
-            <button
-              key={link.path}
-              className="btn btn-glass flex items-center gap-2"
-              style={{ borderColor: link.color, color: link.color }}
-              onClick={() => navigate(link.path)}
-            >
-              {link.icon}
-              {link.label}
-            </button>
-          ))}
+      {/* Quick Actions */}
+      <div>
+        <h2 className="text-sm font-bold text-muted uppercase tracking-wider mb-3">Quick Navigation</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Link to="/sales/pos" className="quick-action-card p-3">
+            <div className="quick-action-icon bg-indigo-500/20 text-indigo-400">
+              <ShoppingCart size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">POS Register</div>
+            </div>
+          </Link>
+
+          <Link to="/admin/sales" className="quick-action-card p-3">
+            <div className="quick-action-icon bg-blue-500/20 text-blue-400">
+              <Receipt size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">Sales Log</div>
+            </div>
+          </Link>
+
+          <Link to="/add-reservation" className="quick-action-card p-3">
+            <div className="quick-action-icon bg-emerald-500/20 text-emerald-400">
+              <PlusSquare size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">New Booking</div>
+            </div>
+          </Link>
+
+          <Link to="/reservations" className="quick-action-card p-3">
+            <div className="quick-action-icon bg-purple-500/20 text-purple-400">
+              <Calendar size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">Reservations</div>
+            </div>
+          </Link>
+
+          <Link to="/admin/products" className="quick-action-card p-3">
+            <div className="quick-action-icon bg-amber-500/20 text-amber-400">
+              <Package size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">Products</div>
+            </div>
+          </Link>
+
+          <Link to="/manager/sales-history" className="quick-action-card p-3">
+            <div className="quick-action-icon bg-rose-500/20 text-rose-400">
+              <ClipboardList size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">Sales Audits</div>
+            </div>
+          </Link>
         </div>
       </div>
 
-      {/* Upcoming Reservations */}
+      {/* Upcoming / Recent Reservations */}
       <div className="glass-card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold">Recent Reservations</h2>
-          <button className="btn btn-glass btn-sm" onClick={() => navigate('/reservations')}>
-            View All
+          <div>
+            <h2 className="text-lg font-bold text-white">Recent Decor Reservations</h2>
+            <p className="text-xs text-muted">Latest client event bookings</p>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/reservations')}>
+            <span>View All</span>
+            <ChevronRight size={14} />
           </button>
         </div>
+
         {loading ? (
-          <p className="text-muted text-sm">Loading...</p>
+          <div className="text-center py-10 text-muted text-sm">Loading reservations...</div>
         ) : reservations.length === 0 ? (
-          <p className="text-muted text-sm">No reservations yet.</p>
+          <div className="text-center py-10 text-muted text-sm">
+            <Calendar size={32} className="mx-auto mb-2 opacity-30" />
+            No reservations registered yet.
+          </div>
         ) : (
-          <div className="table-wrapper" style={{ maxHeight: '300px' }}>
+          <div className="table-wrapper">
             <table className="glass-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Client</th>
+                  <th>Booking ID</th>
+                  <th>Client Name</th>
                   <th>Event Date</th>
-                  <th>Place</th>
+                  <th>Venue / Location</th>
                   <th>Category</th>
-                  <th>Advance</th>
+                  <th>Advance Deposit</th>
                 </tr>
               </thead>
               <tbody>
-                {reservations.slice(0, 8).map(r => (
+                {reservations.slice(0, 7).map(r => (
                   <tr
                     key={r.id}
-                    style={{ cursor: 'pointer' }}
+                    className="cursor-pointer hover:bg-white/[0.04] transition-colors"
                     onClick={() => navigate(`/reservations/${r.id}`)}
                   >
-                    <td>#{r.id}</td>
-                    <td className="font-semibold">{r.contact_name}</td>
-                    <td>{new Date(r.event_date).toLocaleDateString()}</td>
-                    <td>{r.place}</td>
+                    <td className="font-mono text-xs text-indigo-400">#{r.id}</td>
+                    <td className="font-semibold text-white">{r.contact_name}</td>
+                    <td className="text-muted text-sm">{new Date(r.event_date).toLocaleDateString()}</td>
+                    <td className="text-muted text-sm">{r.place}</td>
                     <td><span className="badge badge-success">{r.category}</span></td>
-                    <td className="text-secondary font-semibold">
+                    <td className="text-emerald-400 font-bold font-mono">
                       ${parseFloat(r.advance_payment).toFixed(2)}
                     </td>
                   </tr>

@@ -14,6 +14,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     // If user's role is not authorized, redirect to their home based on role
     const redirects = {
       'Admin': '/admin/dashboard',
+      'Manager': '/manager/dashboard',
       'Encoder': '/encoder/categories',
       'Salesperson': '/sales/pos'
     };

@@ -56,6 +56,11 @@ class PriceUpdateController {
         $priceUpdate = new PriceUpdate($this->db);
         $priceUpdate->product_id = (int)$data->product_id;
         $priceUpdate->new_price = (float)$data->new_price;
+        if (isset($data->new_selling_price) && $data->new_selling_price !== '') {
+            $priceUpdate->new_selling_price = (float)$data->new_selling_price;
+        } else {
+            $priceUpdate->new_selling_price = null;
+        }
         $priceUpdate->effective_date = !empty($data->effective_date) ? $data->effective_date : date('Y-m-d');
         $priceUpdate->remarks = !empty($data->remarks) ? $data->remarks : null;
         $priceUpdate->updated_by = (int)$payload['id'];

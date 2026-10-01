@@ -128,6 +128,53 @@ class Product {
         return false;
     }
 
+    public function restock($id, $added_qty, $user_id, $branch_id = null) {
+        $this->id = $id;
+        $oldRecord = $this->readOne($branch_id);
+        if(!$oldRecord) return false;
+
+        $new_qty = (int)$oldRecord['quantity'] + (int)$added_qty;
+        $nap = !empty($this->arrival_price) ? $this->arrival_price : $oldRecord['arrival_price'];
+        $nsp = !empty($this->selling_price) ? $this->selling_price : $oldRecord['selling_price'];
+
+        $query = "UPDATE " . $this->table_name . " 
+                  SET quantity=:quantity, arrival_price=:arrival_price, selling_price=:selling_price 
+                  WHERE id=:id";
+        if ($branch_id !== null) {
+            $query .= " AND branch_id = :branch_id";
+        }
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":quantity", $new_qty);
+        $stmt->bindParam(":arrival_price", $nap);
+        $stmt->bindParam(":selling_price", $nsp);
+        $stmt->bindParam(":id", $id);
+        if ($branch_id !== null) {
+            $stmt->bindParam(":branch_id", $branch_id);
+        }
+
+        if($stmt->execute()) {
+            $query_hist = "INSERT INTO " . $this->history_table . " 
+                           SET product_id=:product_id, 
+                               old_arrival_price=:oap, new_arrival_price=:nap,
+                               old_price=:old_price, new_price=:new_price,
+                               old_quantity=:old_quantity, new_quantity=:new_quantity,
+                               changed_by=:changed_by";
+            $stmt_hist = $this->conn->prepare($query_hist);
+            $stmt_hist->bindParam(":product_id", $id);
+            $stmt_hist->bindParam(":oap", $oldRecord['arrival_price']);
+            $stmt_hist->bindParam(":nap", $nap);
+            $stmt_hist->bindParam(":old_price", $oldRecord['selling_price']);
+            $stmt_hist->bindParam(":new_price", $nsp);
+            $stmt_hist->bindParam(":old_quantity", $oldRecord['quantity']);
+            $stmt_hist->bindParam(":new_quantity", $new_qty);
+            $stmt_hist->bindParam(":changed_by", $user_id);
+            $stmt_hist->execute();
+
+            return true;
+        }
+        return false;
+    }
+
     public function getHistory($branch_id = null) {
         if ($branch_id !== null) {
             $query = "SELECT h.*, p.name as product_name, c.name as category_name, u.name as user_name 

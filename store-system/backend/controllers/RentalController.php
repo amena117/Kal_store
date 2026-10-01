@@ -17,13 +17,7 @@ class RentalController {
 
     private function ensureTablesExist() {
         try {
-            $stmt = $this->db->query("SELECT 1 FROM rentals LIMIT 1");
-            if ($stmt) {
-                $stmt->closeCursor();
-            }
-        } catch (Exception $e) {
-            // Tables don't exist, try to create them
-            $sql1 = "CREATE TABLE IF NOT EXISTS rentals (
+            $this->db->exec("CREATE TABLE IF NOT EXISTS rentals (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 total_payment DECIMAL(10,2) NOT NULL,
                 advance_payment DECIMAL(10,2) NOT NULL,
@@ -34,30 +28,54 @@ class RentalController {
                 customer_name VARCHAR(255),
                 phone_number VARCHAR(20),
                 created_by INT,
+                branch_id INT DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (received_by) REFERENCES users(id) ON DELETE SET NULL,
                 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-            )";
+            )");
 
-            $sql2 = "CREATE TABLE IF NOT EXISTS rental_items (
+            $this->db->exec("CREATE TABLE IF NOT EXISTS rental_items (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 rental_id INT NOT NULL,
                 product_name VARCHAR(255) NOT NULL,
                 category VARCHAR(255) NOT NULL,
                 quantity INT NOT NULL,
                 FOREIGN KEY (rental_id) REFERENCES rentals(id) ON DELETE CASCADE
-            )";
+            )");
 
-            $sql3 = "CREATE TABLE IF NOT EXISTS rental_item_memory (
+            $this->db->exec("CREATE TABLE IF NOT EXISTS rental_item_memory (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 product_name VARCHAR(255) NOT NULL,
                 category VARCHAR(255) NOT NULL,
                 UNIQUE KEY unique_entry (product_name, category)
-            )";
+            )");
 
-            $this->db->exec($sql1);
-            $this->db->exec($sql2);
-            $this->db->exec($sql3);
+            $this->db->exec("CREATE TABLE IF NOT EXISTS rental_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                rental_id INT NOT NULL,
+                old_total DECIMAL(10,2),
+                new_total DECIMAL(10,2),
+                old_advance DECIMAL(10,2),
+                new_advance DECIMAL(10,2),
+                old_return_date DATE,
+                new_return_date DATE,
+                note TEXT,
+                edited_by INT,
+                branch_id INT DEFAULT 1,
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (rental_id) REFERENCES rentals(id) ON DELETE CASCADE,
+                FOREIGN KEY (edited_by) REFERENCES users(id) ON DELETE SET NULL
+            )");
+        } catch (Exception $e) {
+            // Ignore if tables already exist
+        }
+
+        try {
+            $this->db->query("SELECT branch_id FROM rentals LIMIT 1");
+        } catch (Exception $e) {
+            try {
+                $this->db->exec("ALTER TABLE rentals ADD COLUMN branch_id INT DEFAULT 1");
+            } catch (Exception $ex) {}
         }
     }
 
@@ -157,23 +175,28 @@ class RentalController {
     }
 
     private function getHistory($branch_id = null) {
-        $query = "SELECT rh.*, r.customer_name as rental_customer, u.name as editor_name
-                  FROM rental_history rh
-                  JOIN rentals r ON rh.rental_id = r.id
-                  LEFT JOIN users u ON rh.edited_by = u.id";
-        
-        if ($branch_id !== null) {
-            $query .= " WHERE rh.branch_id = :branch_id";
-        }
-        $query .= " ORDER BY rh.date DESC";
+        try {
+            $query = "SELECT rh.*, r.customer_name as rental_customer, u.name as editor_name
+                      FROM rental_history rh
+                      LEFT JOIN rentals r ON rh.rental_id = r.id
+                      LEFT JOIN users u ON rh.edited_by = u.id";
+            
+            if ($branch_id !== null) {
+                $query .= " WHERE rh.branch_id = :branch_id";
+            }
+            $query .= " ORDER BY rh.date DESC";
 
-        $stmt = $this->db->prepare($query);
-        if ($branch_id !== null) {
-            $stmt->bindParam(':branch_id', $branch_id);
+            $stmt = $this->db->prepare($query);
+            if ($branch_id !== null) {
+                $stmt->bindParam(':branch_id', $branch_id);
+            }
+            $stmt->execute();
+            $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($history ?: []);
+        } catch (Exception $e) {
+            error_log("Rental getHistory error: " . $e->getMessage());
+            echo json_encode([]);
         }
-        $stmt->execute();
-        $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode($history);
     }
 
     private function getMemory() {

@@ -60,7 +60,8 @@ class Sale {
             if($this->conn->inTransaction()) {
                 $this->conn->rollBack();
             }
-            return "error";
+            error_log("Sale create error: " . $e->getMessage());
+            return "error: " . $e->getMessage();
         }
     }
 

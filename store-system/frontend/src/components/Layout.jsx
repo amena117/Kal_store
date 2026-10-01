@@ -17,18 +17,21 @@ const Layout = () => {
     <div className="app-container">
       {/* Mobile Header */}
       <div className="mobile-header">
-        <div className="flex items-center gap-3 overflow-hidden min-w-0">
-          <Package className="text-white shrink-0" size={22} />
-          <span className="font-bold text-lg text-white truncate shrink transition-all">Kal Gift Shop</span>
+        <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
+            <Package size={18} />
+          </div>
+          <span className="font-extrabold text-base text-white truncate shrink tracking-tight">Kal Gift Shop</span>
         </div>
         
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto shrink-0">
           <BranchSelector isMobile={true} />
           <button
-            className="p-2 text-white hover:bg-glass-bg rounded-md lg:hidden shrink-0"
+            className="p-2 text-white hover:bg-white/10 rounded-lg lg:hidden shrink-0 transition-colors"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open navigation menu"
           >
-            <Menu size={24} />
+            <Menu size={22} />
           </button>
         </div>
       </div>

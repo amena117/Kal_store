@@ -7,6 +7,7 @@ class PriceUpdate {
     public $product_id;
     public $previous_price;
     public $new_price;
+    public $new_selling_price;
     public $price_difference;
     public $effective_date;
     public $remarks;
@@ -21,8 +22,8 @@ class PriceUpdate {
         try {
             $this->conn->beginTransaction();
 
-            // 1. Fetch current product arrival_price
-            $check = $this->conn->prepare("SELECT arrival_price FROM products WHERE id = ?");
+            // 1. Fetch current product arrival_price and selling_price
+            $check = $this->conn->prepare("SELECT arrival_price, selling_price FROM products WHERE id = ?");
             $check->execute([$this->product_id]);
             $prod = $check->fetch(PDO::FETCH_ASSOC);
 
@@ -34,6 +35,9 @@ class PriceUpdate {
             $prevPrice = (float)$prod['arrival_price'];
             $newPrice = (float)$this->new_price;
             $diff = round($newPrice - $prevPrice, 2);
+
+            $prevSellingPrice = (float)$prod['selling_price'];
+            $newSellingPrice = $this->new_selling_price !== null ? (float)$this->new_selling_price : $prevSellingPrice;
 
             // 2. Insert into price_update_history
             $query = "INSERT INTO " . $this->table_name . " 
@@ -59,10 +63,11 @@ class PriceUpdate {
                 throw new Exception("Failed to insert price update record.");
             }
 
-            // 3. Update arrival_price in products table
-            $updateProd = $this->conn->prepare("UPDATE products SET arrival_price = :new_price WHERE id = :id");
+            // 3. Update arrival_price and selling_price in products table
+            $updateProd = $this->conn->prepare("UPDATE products SET arrival_price = :new_price, selling_price = :new_selling_price WHERE id = :id");
             $updateProd->execute([
                 ":new_price" => $newPrice,
+                ":new_selling_price" => $newSellingPrice,
                 ":id" => $this->product_id
             ]);
 
@@ -70,12 +75,14 @@ class PriceUpdate {
             $audit = $this->conn->prepare(
                 "INSERT INTO product_history 
                  (product_id, old_arrival_price, new_arrival_price, old_price, new_price, old_quantity, new_quantity, changed_by)
-                 SELECT id, :old_ap, :new_ap, selling_price, selling_price, quantity, quantity, :changed_by
+                 SELECT id, :old_ap, :new_ap, :old_sp, :new_sp, quantity, quantity, :changed_by
                  FROM products WHERE id = :pid"
             );
             $audit->execute([
                 ":old_ap" => $prevPrice,
                 ":new_ap" => $newPrice,
+                ":old_sp" => $prevSellingPrice,
+                ":new_sp" => $newSellingPrice,
                 ":changed_by" => $this->updated_by,
                 ":pid" => $this->product_id
             ]);

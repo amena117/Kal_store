@@ -47,7 +47,7 @@ class SaleController {
                 break;
 
             case 'POST':
-                if($payload['role'] !== 'Admin' && $payload['role'] !== 'Salesperson' && $payload['role'] !== 'Encoder') {
+                if(!in_array($payload['role'], ['Admin', 'Salesperson', 'Encoder', 'Manager'])) {
                     http_response_code(403);
                     echo json_encode(["message" => "Permission denied."]);
                     return;
@@ -104,17 +104,25 @@ class SaleController {
     private function createSale($user_id, $branch_id = 1) {
         $data = json_decode(file_get_contents("php://input"));
 
-        if(!empty($data->product_id) && !empty($data->quantity) && !empty($data->selling_price) && !empty($data->total)) {
+        if(isset($data->product_id) && isset($data->quantity) && isset($data->selling_price) && isset($data->total)) {
             $sale = new Sale($this->db);
-            $sale->product_id    = $data->product_id;
-            $sale->quantity      = $data->quantity;
-            $sale->selling_price = $data->selling_price;
-            $sale->total         = $data->total;
-            $sale->user_id       = $user_id;
-            $sale->branch_id     = $branch_id;
+            $sale->product_id    = (int)$data->product_id;
+            $sale->quantity      = (int)$data->quantity;
+            $sale->selling_price = (float)$data->selling_price;
+            $sale->total         = (float)$data->total;
+            $sale->user_id       = (int)$user_id;
+            $sale->branch_id     = (int)$branch_id;
             
             // Allow backdating if provided, else use current time
-            $sale->actual_sale_date = !empty($data->actual_sale_date) ? $data->actual_sale_date : date('Y-m-d H:i:s');
+            if (!empty($data->actual_sale_date)) {
+                $actual_date = trim($data->actual_sale_date);
+                if (strlen($actual_date) === 10) {
+                    $actual_date .= ' ' . date('H:i:s');
+                }
+                $sale->actual_sale_date = $actual_date;
+            } else {
+                $sale->actual_sale_date = date('Y-m-d H:i:s');
+            }
 
             $result = $sale->create();
 
@@ -126,7 +134,7 @@ class SaleController {
                 echo json_encode(["message" => "Insufficient stock available."]);
             } else {
                 http_response_code(503);
-                echo json_encode(["message" => "Unable to record sale."]);
+                echo json_encode(["message" => "Unable to record sale.", "error" => $result]);
             }
         } else {
             http_response_code(400);

@@ -46,6 +46,22 @@ class ProductController {
             return;
         }
 
+        // Check for specific endpoint /api/products/{id}/restock
+        if ($id && isset($parts[1]) && $parts[1] === 'restock') {
+            if ($method === 'POST') {
+                if ($payload['role'] !== 'Admin' && $payload['role'] !== 'Encoder' && $payload['role'] !== 'Manager') {
+                    http_response_code(403);
+                    echo json_encode(["message" => "Permission denied."]);
+                    return;
+                }
+                $this->restockProduct($id, $payload['id'], $branch_id);
+            } else {
+                http_response_code(405);
+                echo json_encode(["message" => "Method not allowed"]);
+            }
+            return;
+        }
+
         switch ($method) {
             case 'GET':
                 $this->getProducts($branch_id);
@@ -138,6 +154,29 @@ class ProductController {
         } else {
             http_response_code(400);
             echo json_encode(["message" => "Incomplete data."]);
+        }
+    }
+
+    private function restockProduct($id, $user_id, $branch_id = null) {
+        $data = json_decode(file_get_contents("php://input"));
+        $added_qty = (int)($data->added_quantity ?? $data->quantity ?? 0);
+
+        if ($added_qty <= 0) {
+            http_response_code(400);
+            echo json_encode(["message" => "Valid quantity to add is required."]);
+            return;
+        }
+
+        $product = new Product($this->db);
+        $product->arrival_price = !empty($data->arrival_price) ? $data->arrival_price : null;
+        $product->selling_price = !empty($data->selling_price) ? $data->selling_price : null;
+
+        if ($product->restock($id, $added_qty, $user_id, $branch_id)) {
+            http_response_code(200);
+            echo json_encode(["message" => "Product restocked successfully."]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["message" => "Unable to restock product."]);
         }
     }
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Search, Filter, Edit2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Download } from 'lucide-react';
+import { Search, Filter, Edit2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Download, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { exportToCSV } from '../../utils/csvExport';
 
 const ITEMS_PER_PAGE = 20;
@@ -18,8 +18,11 @@ const SalesLog = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [actualDateFrom, setActualDateFrom] = useState('');
+  const [actualDateTo, setActualDateTo] = useState('');
   const [minTotal, setMinTotal] = useState('');
   const [maxTotal, setMaxTotal] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -51,7 +54,7 @@ const SalesLog = () => {
   useEffect(() => { fetchData(); }, [activeBranchId]);
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [search, selectedCategory, dateFrom, dateTo, minTotal, maxTotal]);
+  useEffect(() => { setPage(1); }, [search, selectedCategory, dateFrom, dateTo, actualDateFrom, actualDateTo, minTotal, maxTotal]);
 
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
@@ -65,12 +68,18 @@ const SalesLog = () => {
       const saleDate = new Date(s.date);
       const matchFrom = !dateFrom || saleDate >= new Date(dateFrom);
       const matchTo = !dateTo || saleDate <= new Date(dateTo + 'T23:59:59');
+      
+      const actualSaleDateStr = s.actual_sale_date ? s.actual_sale_date.replace(' ', 'T') : s.date.replace(' ', 'T');
+      const actualSaleDate = new Date(actualSaleDateStr);
+      const matchActualFrom = !actualDateFrom || actualSaleDate >= new Date(actualDateFrom);
+      const matchActualTo = !actualDateTo || actualSaleDate <= new Date(actualDateTo + 'T23:59:59');
+      
       const total = parseFloat(s.total);
       const matchMin = !minTotal || total >= parseFloat(minTotal);
       const matchMax = !maxTotal || total <= parseFloat(maxTotal);
-      return matchSearch && matchCat && matchFrom && matchTo && matchMin && matchMax;
+      return matchSearch && matchCat && matchFrom && matchTo && matchActualFrom && matchActualTo && matchMin && matchMax;
     });
-  }, [sales, search, selectedCategory, dateFrom, dateTo, minTotal, maxTotal]);
+  }, [sales, search, selectedCategory, dateFrom, dateTo, actualDateFrom, actualDateTo, minTotal, maxTotal]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / ITEMS_PER_PAGE));
   const paginated = filteredSales.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -126,11 +135,13 @@ const SalesLog = () => {
     setSelectedCategory('All');
     setDateFrom('');
     setDateTo('');
+    setActualDateFrom('');
+    setActualDateTo('');
     setMinTotal('');
     setMaxTotal('');
   };
 
-  const hasActiveFilters = search || selectedCategory !== 'All' || dateFrom || dateTo || minTotal || maxTotal;
+  const hasActiveFilters = search || selectedCategory !== 'All' || dateFrom || dateTo || actualDateFrom || actualDateTo || minTotal || maxTotal;
 
   const exportData = () => {
     const formatted = filteredSales.map(s => ({
@@ -171,11 +182,12 @@ const SalesLog = () => {
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Sleek Modern Filter Bar */}
       <div className="glass-card mb-4 p-4">
-        <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          {/* Search */}
-          <div className="relative" style={{ gridColumn: 'span 2' }}>
+        {/* Top Row: Primary Search & Key Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Main Search Input */}
+          <div className="relative flex-1" style={{ minWidth: '240px' }}>
             <Search className="absolute left-3 top-2.5 text-muted" size={16} />
             <input
               type="text"
@@ -186,8 +198,8 @@ const SalesLog = () => {
             />
           </div>
 
-          {/* Category */}
-          <div className="relative">
+          {/* Category Dropdown */}
+          <div className="relative" style={{ minWidth: '160px' }}>
             <Filter className="absolute left-3 top-2.5 text-muted" size={16} />
             <select
               className="form-control pl-9"
@@ -201,54 +213,121 @@ const SalesLog = () => {
             </select>
           </div>
 
-          {/* Date From */}
-          <div className="relative">
-            <Calendar className="absolute left-3 top-2.5 text-muted" size={16} />
-            <input
-              type="date"
-              className="form-control pl-9"
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              title="Date From"
-            />
+          {/* Date Range (System Date) */}
+          <div className="flex items-center gap-1.5">
+            <div className="relative" style={{ width: '145px' }}>
+              <Calendar className="absolute left-2.5 top-2.5 text-muted" size={14} />
+              <input
+                type="date"
+                className="form-control pl-8 text-xs"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                title="System Date From"
+              />
+            </div>
+            <span className="text-muted text-xs font-semibold">to</span>
+            <div className="relative" style={{ width: '145px' }}>
+              <Calendar className="absolute left-2.5 top-2.5 text-muted" size={14} />
+              <input
+                type="date"
+                className="form-control pl-8 text-xs"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                title="System Date To"
+              />
+            </div>
           </div>
 
-          {/* Date To */}
-          <div className="relative">
-            <Calendar className="absolute left-3 top-2.5 text-muted" size={16} />
-            <input
-              type="date"
-              className="form-control pl-9"
-              value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              title="Date To"
-            />
-          </div>
-
-          {/* Total Range */}
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-2.5 text-muted" size={16} />
-            <input
-              type="number"
-              placeholder="Min Total"
-              className="form-control pl-9"
-              value={minTotal}
-              onChange={e => setMinTotal(e.target.value)}
-              min="0" step="0.01"
-            />
-          </div>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-2.5 text-muted" size={16} />
-            <input
-              type="number"
-              placeholder="Max Total"
-              className="form-control pl-9"
-              value={maxTotal}
-              onChange={e => setMaxTotal(e.target.value)}
-              min="0" step="0.01"
-            />
-          </div>
+          {/* Advanced Filters Button */}
+          <button
+            type="button"
+            className={`btn btn-sm ${showAdvanced || [actualDateFrom, actualDateTo, minTotal, maxTotal].filter(Boolean).length > 0 ? 'btn-primary' : 'btn-glass'} gap-1.5`}
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            title="Toggle more filters (Actual date, price range)"
+          >
+            <SlidersHorizontal size={14} />
+            <span>More</span>
+            {[actualDateFrom, actualDateTo, minTotal, maxTotal].filter(Boolean).length > 0 && (
+              <span className="bg-white/20 text-white rounded-full px-1.5 py-0.2 text-[10px] font-bold">
+                {[actualDateFrom, actualDateTo, minTotal, maxTotal].filter(Boolean).length}
+              </span>
+            )}
+            <ChevronDown size={14} className={`transition-transform duration-200 ${showAdvanced ? 'rotate-180' : ''}`} />
+          </button>
         </div>
+
+        {/* Collapsible Advanced Filters Row */}
+        {showAdvanced && (
+          <div className="mt-3 pt-3 border-t border-white/[0.08] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up">
+            {/* Actual Date Range */}
+            <div>
+              <label className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1 block">
+                Actual Sale Date (From)
+              </label>
+              <div className="relative">
+                <Calendar className="absolute left-2.5 top-2.5 text-muted" size={14} />
+                <input
+                  type="date"
+                  className="form-control pl-8 text-xs"
+                  value={actualDateFrom}
+                  onChange={e => setActualDateFrom(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1 block">
+                Actual Sale Date (To)
+              </label>
+              <div className="relative">
+                <Calendar className="absolute left-2.5 top-2.5 text-muted" size={14} />
+                <input
+                  type="date"
+                  className="form-control pl-8 text-xs"
+                  value={actualDateTo}
+                  onChange={e => setActualDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Price Range */}
+            <div>
+              <label className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1 block">
+                Min Total ($)
+              </label>
+              <div className="relative">
+                <DollarSign className="absolute left-2.5 top-2.5 text-muted" size={14} />
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  className="form-control pl-8 text-xs"
+                  value={minTotal}
+                  onChange={e => setMinTotal(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1 block">
+                Max Total ($)
+              </label>
+              <div className="relative">
+                <DollarSign className="absolute left-2.5 top-2.5 text-muted" size={14} />
+                <input
+                  type="number"
+                  placeholder="No limit"
+                  step="0.01"
+                  min="0"
+                  className="form-control pl-8 text-xs"
+                  value={maxTotal}
+                  onChange={e => setMaxTotal(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}

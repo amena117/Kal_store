@@ -18,9 +18,9 @@ import {
   Building2,
   TrendingUp,
   Receipt,
-  Settings,
   UserCog,
-  DollarSign
+  DollarSign,
+  Sparkles
 } from 'lucide-react';
 import api from '../services/api';
 import BranchSelector from './BranchSelector';
@@ -50,149 +50,261 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   if (!user) return null;
 
-  const roleNavItems = {
+  const roleNavSections = {
     'Admin': [
-     
-      { path: '/admin/dashboard',     name: 'Dashboard',            icon: <LayoutDashboard size={20} /> },
-      { path: '/admin/users',         name: 'User Management',      icon: <Users size={20} /> },
-      { path: '/admin/branches',      name: 'Branches',             icon: <Building2 size={20} /> },
-       { path: '/sales/pos',           name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
-      { path: '/admin/sales',         name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
-      { path: '/admin/sales-history', name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
-      { path: '/encoder/categories',  name: 'Categories',           icon: <Tags size={20} /> },
-      { path: '/admin/products',      name: 'Products',             icon: <Package size={20} /> },
-      { path: '/inventory/price-update', name: 'Price Update',      icon: <DollarSign size={20} /> },
-      { path: '/admin/history',       name: 'Product Audit History',icon: <History size={20} /> },
-      { path: '/admin/low-stock',     name: 'Low Stock',            icon: <Bell size={20} className={notifications.length > 0 ? "text-warning" : ""} /> },
-      { path: '/add-reservation',     name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },
-      { path: '/reservations',        name: 'Decor Reservations',   icon: <Calendar size={20} /> },
-      { path: '/admin/reservation-history', name: 'Reserv. Edit Audit', icon: <ClipboardList size={20} /> },
-      { path: '/rentals',             name: 'Standalone Rentals',   icon: <ShoppingBag size={20} /> },
-      { path: '/admin/rental-history',name: 'Rental Edit Audit',    icon: <ClipboardList size={20} /> },
-      { path: '/admin/profit',        name: 'Profit Tracking',      icon: <TrendingUp size={20} /> },
-      { path: '/expenses',            name: 'Expenses',             icon: <Receipt size={20} /> },
-      { path: '/admin/expense-history',name:'Expense Edit Audit',   icon: <ClipboardList size={20} /> },
-      { path: '#profile',             name: 'Profile Settings',     icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
+      {
+        title: 'Overview',
+        items: [
+          { path: '/admin/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        ]
+      },
+      {
+        title: 'Store Operations',
+        items: [
+          { path: '/sales/pos', name: 'Point of Sale', icon: <ShoppingCart size={18} /> },
+          { path: '/admin/sales', name: 'Sales Log', icon: <Receipt size={18} /> },
+        ]
+      },
+      {
+        title: 'Catalog & Inventory',
+        items: [
+          { path: '/admin/products', name: 'Products', icon: <Package size={18} /> },
+          { path: '/encoder/categories', name: 'Categories', icon: <Tags size={18} /> },
+          { path: '/inventory/price-update', name: 'Price Update', icon: <DollarSign size={18} /> },
+          { 
+            path: '/admin/low-stock', 
+            name: 'Low Stock Alert', 
+            icon: <Bell size={18} />, 
+            badge: notifications.length > 0 ? notifications.length : null 
+          },
+        ]
+      },
+      {
+        title: 'Bookings & Rentals',
+        items: [
+          { path: '/reservations', name: 'Decor Reservations', icon: <Calendar size={18} /> },
+          { path: '/add-reservation', name: 'New Reservation', icon: <PlusSquare size={18} /> },
+          { path: '/rentals', name: 'Standalone Rentals', icon: <ShoppingBag size={18} /> },
+        ]
+      },
+      {
+        title: 'Finance & Accounts',
+        items: [
+          { path: '/admin/profit', name: 'Profit Tracking', icon: <TrendingUp size={18} /> },
+          { path: '/expenses', name: 'Expenses', icon: <DollarSign size={18} /> },
+        ]
+      },
+      {
+        title: 'Audits & Logs',
+        items: [
+          { path: '/admin/history', name: 'Product Audit', icon: <History size={18} /> },
+          { path: '/admin/sales-history', name: 'Sales Edit Audit', icon: <ClipboardList size={18} /> },
+          { path: '/admin/reservation-history', name: 'Reserv. Audit', icon: <ClipboardList size={18} /> },
+          { path: '/admin/rental-history', name: 'Rental Audit', icon: <ClipboardList size={18} /> },
+          { path: '/admin/expense-history', name: 'Expense Audit', icon: <ClipboardList size={18} /> },
+        ]
+      },
+      {
+        title: 'Administration',
+        items: [
+          { path: '/admin/users', name: 'User Management', icon: <Users size={18} /> },
+          { path: '/admin/branches', name: 'Store Branches', icon: <Building2 size={18} /> },
+        ]
+      }
     ],
-    'Manager': [    
-      { path: '/manager/dashboard',      name: 'Dashboard',            icon: <LayoutDashboard size={20} /> },
-       { path: '/sales/pos',              name: 'Point of Sale',        icon: <ShoppingCart size={20} /> },
-      { path: '/admin/sales',            name: 'Sales Log',            icon: <ShoppingCart size={20} /> },
-      { path: '/manager/sales-history',  name: 'Sales Edit Audit',     icon: <ClipboardList size={20} /> },
-      { path: '/admin/products',         name: 'Products',             icon: <Package size={20} /> },
-      { path: '/inventory/price-update', name: 'Price Update',          icon: <DollarSign size={20} /> },
-      { path: '/admin/history',          name: 'Product Audit History',icon: <History size={20} /> },
-      { path: '/admin/low-stock',        name: 'Low Stock',            icon: <Bell size={20} /> },
-      { path: '/add-reservation',        name: 'Add Reservation',      icon: <PlusSquare size={20} /> },
-      { path: '/reservations',           name: 'Reservations',         icon: <Calendar size={20} /> },
-      { path: '/manager/reservation-history', name: 'Reserv. Edit Audit', icon: <ClipboardList size={20} /> },
-      { path: '/rentals',                name: 'Standalone Rentals',   icon: <ShoppingBag size={20} /> },
-      { path: '/manager/rental-history', name: 'Rental Edit Audit',    icon: <ClipboardList size={20} /> },
-      { path: '/admin/profit',           name: 'Profit Tracking',      icon: <TrendingUp size={20} /> },
-      { path: '/expenses',               name: 'Expenses',             icon: <Receipt size={20} /> },
-      { path: '/manager/expense-history',name: 'Expense Edit Audit',   icon: <ClipboardList size={20} /> },
-      { path: '#profile',                name: 'Profile Settings',     icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
+    'Manager': [
+      {
+        title: 'Overview',
+        items: [
+          { path: '/manager/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        ]
+      },
+      {
+        title: 'Store Operations',
+        items: [
+          { path: '/sales/pos', name: 'Point of Sale', icon: <ShoppingCart size={18} /> },
+          { path: '/admin/sales', name: 'Sales Log', icon: <Receipt size={18} /> },
+        ]
+      },
+      {
+        title: 'Catalog & Inventory',
+        items: [
+          { path: '/admin/products', name: 'Products', icon: <Package size={18} /> },
+          { path: '/inventory/price-update', name: 'Price Update', icon: <DollarSign size={18} /> },
+          { 
+            path: '/admin/low-stock', 
+            name: 'Low Stock Alert', 
+            icon: <Bell size={18} />, 
+            badge: notifications.length > 0 ? notifications.length : null 
+          },
+        ]
+      },
+      {
+        title: 'Bookings & Rentals',
+        items: [
+          { path: '/reservations', name: 'Reservations', icon: <Calendar size={18} /> },
+          { path: '/add-reservation', name: 'New Reservation', icon: <PlusSquare size={18} /> },
+          { path: '/rentals', name: 'Standalone Rentals', icon: <ShoppingBag size={18} /> },
+        ]
+      },
+      {
+        title: 'Finance',
+        items: [
+          { path: '/admin/profit', name: 'Profit Tracking', icon: <TrendingUp size={18} /> },
+          { path: '/expenses', name: 'Expenses', icon: <DollarSign size={18} /> },
+        ]
+      },
+      {
+        title: 'Audits & Logs',
+        items: [
+          { path: '/admin/history', name: 'Product Audit', icon: <History size={18} /> },
+          { path: '/manager/sales-history', name: 'Sales Edit Audit', icon: <ClipboardList size={18} /> },
+          { path: '/manager/reservation-history', name: 'Reserv. Audit', icon: <ClipboardList size={18} /> },
+          { path: '/manager/rental-history', name: 'Rental Audit', icon: <ClipboardList size={18} /> },
+          { path: '/manager/expense-history', name: 'Expense Audit', icon: <ClipboardList size={18} /> },
+        ]
+      }
     ],
     'Encoder': [
-      { path: '/encoder/categories', name: 'Categories',       icon: <Tags size={20} /> },
-      { path: '/encoder/products',   name: 'Products',         icon: <Package size={20} /> },
-      { path: '/inventory/price-update', name: 'Price Update',  icon: <DollarSign size={20} /> },
-      { path: '/encoder/sales',      name: 'Sales Log',        icon: <ShoppingCart size={20} /> },
-      { path: '/sales/pos',          name: 'Point of Sale',    icon: <ShoppingCart size={20} /> },
-      { path: '/add-reservation',    name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },
-      { path: '/reservations',       name: 'Decor Reservations',icon: <Calendar size={20} /> },
-      { path: '/rentals',            name: 'Standalone Rentals',icon: <ShoppingBag size={20} /> },
-      { path: '/expenses',           name: 'Expenses',         icon: <Receipt size={20} /> },
-      { path: '#profile',            name: 'Profile Settings', icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
+      {
+        title: 'Catalog Management',
+        items: [
+          { path: '/encoder/categories', name: 'Categories', icon: <Tags size={18} /> },
+          { path: '/encoder/products', name: 'Products', icon: <Package size={18} /> },
+          { path: '/inventory/price-update', name: 'Price Update', icon: <DollarSign size={18} /> },
+        ]
+      },
+      {
+        title: 'Store Operations',
+        items: [
+          { path: '/sales/pos', name: 'Point of Sale', icon: <ShoppingCart size={18} /> },
+          { path: '/encoder/sales', name: 'Sales Log', icon: <Receipt size={18} /> },
+          { path: '/reservations', name: 'Decor Reservations', icon: <Calendar size={18} /> },
+          { path: '/add-reservation', name: 'New Reservation', icon: <PlusSquare size={18} /> },
+          { path: '/rentals', name: 'Standalone Rentals', icon: <ShoppingBag size={18} /> },
+          { path: '/expenses', name: 'Expenses', icon: <DollarSign size={18} /> },
+        ]
+      }
     ],
     'Salesperson': [
-      { path: '/sales/pos', name: 'Point of Sale',     icon: <ShoppingCart size={20} /> },
-      { path: '/add-reservation', name: 'Add Decor Reservation',icon: <PlusSquare size={20} /> },
-      { path: '/reservations',    name: 'Decor Reservations',   icon: <Calendar size={20} /> },
-      { path: '/rentals',   name: 'Standalone Rentals',icon: <ShoppingBag size={20} /> },
-      { path: '/expenses',  name: 'Expenses',          icon: <Receipt size={20} /> },
-      { path: '#profile',   name: 'Profile Settings',  icon: <UserCog size={20} />, onClick: () => setShowProfile(true) },
+      {
+        title: 'Terminal & Bookings',
+        items: [
+          { path: '/sales/pos', name: 'Point of Sale', icon: <ShoppingCart size={18} /> },
+          { path: '/reservations', name: 'Decor Reservations', icon: <Calendar size={18} /> },
+          { path: '/add-reservation', name: 'New Reservation', icon: <PlusSquare size={18} /> },
+          { path: '/rentals', name: 'Standalone Rentals', icon: <ShoppingBag size={18} /> },
+          { path: '/expenses', name: 'Expenses', icon: <DollarSign size={18} /> },
+        ]
+      }
     ]
   };
 
-  const navItems = roleNavItems[user.role] || [];
+  const navSections = roleNavSections[user.role] || [];
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <div className="p-6 pb-2 flex justify-between items-start shrink-0">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-white text-xl font-bold flex items-center gap-3 leading-tight">
-            <Package className="text-white shrink-0" />
-            Kal Gift Shop And Decor
-          </h2>
+      {/* Brand Header */}
+      <div className="sidebar-header-brand shrink-0">
+        <div className="brand-icon-box">
+          <Sparkles size={22} />
         </div>
-        <button className="lg:hidden p-2 text-muted hover:text-main" onClick={onClose}>
-          <X size={24} />
+        <div className="flex flex-col min-w-0">
+          <h2 className="text-white text-base font-extrabold tracking-tight truncate leading-tight">
+            Kal Gift Shop
+          </h2>
+          <span className="text-[11px] font-semibold text-muted tracking-wider uppercase opacity-80">
+            Decor &amp; Inventory
+          </span>
+        </div>
+        <button 
+          className="lg:hidden ml-auto p-2 text-muted hover:text-white rounded-lg hover:bg-white/10 transition-colors" 
+          onClick={onClose}
+          aria-label="Close sidebar"
+        >
+          <X size={20} />
         </button>
       </div>
 
+      {/* Branch Selector for Admin/Manager */}
       {(user?.role === 'Admin' || user?.role === 'Manager') && (
-        <div className="px-5 mb-6 shrink-0">
+        <div className="px-3 mb-3 shrink-0">
           <BranchSelector />
         </div>
       )}
 
-      <nav className="px-5 pb-6">
-        {navItems.map((item) => (
-          item.onClick ? (
-            <button
-              key={item.name}
-              onClick={item.onClick}
-              className="nav-link w-full border-none bg-transparent text-left"
-            >
-              <div className="flex items-center gap-4">
-                {item.icon}
-                <span>{item.name}</span>
+      {/* Navigation Sections */}
+      <nav className="px-2 pb-6 flex-1 overflow-y-auto custom-scrollbar">
+        {navSections.map((section, sIdx) => (
+          <div key={section.title || sIdx} className="mb-2">
+            {section.title && (
+              <div className="sidebar-section-title">
+                {section.title}
               </div>
-            </button>
-          ) : (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            >
-              <div className="flex justify-between items-center w-full">
-                <div className="flex items-center gap-4">
-                  {item.icon}
-                  <span>{item.name}</span>
-                </div>
-                {item.path === '/admin/low-stock' && notifications.length > 0 && (
-                  <span className="bg-warning text-[#0f172a] text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
-                    {notifications.length}
-                  </span>
-                )}
-              </div>
-            </NavLink>
-          )
+            )}
+            <div className="flex flex-col gap-0.5">
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="shrink-0 opacity-85">{item.icon}</span>
+                    <span className="truncate">{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="bg-warning text-[#090D16] text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
+                      {item.badge}
+                    </span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
-      {/* Sidebar Footer */}
-      <div className="mt-auto p-4 border-t border-glass-border bg-black bg-opacity-30 shrink-0">
-        <div className="glass-panel p-4 mb-4 text-center cursor-pointer hover:bg-white/10 transition-all relative group border border-transparent hover:border-white/10 shadow-sm" onClick={() => setShowProfile(true)} title="Update Profile">
-          <div className="absolute top-2 right-2 flex items-center gap-2 px-2 py-1 bg-white/10 text-white rounded-full transition-all duration-300 group-hover:bg-white/20 shadow-sm" title="Edit Profile">
-           
-     
-             
-          </div>
-          <div className="text-sm font-semibold text-main">{user.name}</div>
-          <div className="text-xs text-muted badge badge-success inline-block mt-1">{user.role}</div>
-          {/* Show branch name for non-Admin users */}
-          {user.role !== 'Admin' && user.branch_name && (
-            <div className="flex items-center justify-center gap-1 mt-2 text-xs text-muted">
-              <Building2 size={11} />
-              <span>{user.branch_name}</span>
+      {/* Sidebar Footer — User Profile & Logout */}
+      <div className="mt-auto p-3.5 border-t border-glass-border bg-black/40 shrink-0 backdrop-blur-md">
+        <div 
+          className="glass-panel p-3 mb-3 cursor-pointer hover:bg-white/10 transition-all border border-white/5 hover:border-white/15 shadow-sm group rounded-xl" 
+          onClick={() => setShowProfile(true)} 
+          title="Update Profile"
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center font-bold text-white shadow-md text-sm border border-white/10">
+                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#0B1120] rounded-full"></span>
             </div>
-          )}
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
+                {user.name}
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-1.5 py-0.5 rounded">
+                  {user.role}
+                </span>
+                {user.branch_name && (
+                  <span className="text-[11px] text-muted truncate flex items-center gap-0.5">
+                    <Building2 size={10} className="shrink-0" />
+                    <span className="truncate">{user.branch_name}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            <UserCog size={16} className="text-muted group-hover:text-white transition-colors shrink-0" />
+          </div>
         </div>
-        <button onClick={logout} className="btn btn-danger w-full justify-start py-3">
-          <LogOut size={20} />
-          Logout
+
+        <button 
+          onClick={logout} 
+          className="btn btn-danger w-full justify-center py-2.5 rounded-xl font-semibold text-sm shadow-md gap-2"
+        >
+          <LogOut size={16} />
+          <span>Sign Out</span>
         </button>
       </div>
 
