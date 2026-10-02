@@ -32,7 +32,13 @@ class SaleController {
             return;
         }
 
-        // Check for /sales/{id} (PUT)
+        // Check for sub-resource: /sales/bulk-delete
+        if (($method === 'POST' || $method === 'DELETE') && isset($parts[0]) && $parts[0] === 'bulk-delete') {
+            $this->handleBulkDelete($payload, $branch_id);
+            return;
+        }
+
+        // Check for /sales/{id}
         $id = isset($parts[0]) && is_numeric($parts[0]) ? (int)$parts[0] : null;
 
         switch ($method) {
@@ -70,10 +76,89 @@ class SaleController {
                 $this->updateSale($id, $payload['id'], $branch_id);
                 break;
 
+            case 'DELETE':
+                $this->handleDelete($id, $payload, $branch_id);
+                break;
+
             default:
                 http_response_code(405);
                 echo json_encode(["message" => "Method not allowed"]);
                 break;
+        }
+    }
+
+    private function isSuperadmin($payload) {
+        $role = strtolower(trim($payload['role'] ?? ''));
+        return in_array($role, ['admin', 'superadmin', 'super admin']) || !empty($payload['is_superadmin']);
+    }
+
+    private function handleDelete($id, $payload, $branch_id = null) {
+        if (!$this->isSuperadmin($payload)) {
+            http_response_code(403);
+            echo json_encode(["message" => "Permission denied. Only Superadmin can delete sales."]);
+            return;
+        }
+
+        $raw = json_decode(file_get_contents("php://input"), true);
+        $ids = [];
+        if ($id) {
+            $ids = [$id];
+        } else if (!empty($raw['ids']) && is_array($raw['ids'])) {
+            $ids = $raw['ids'];
+        } else if (!empty($raw['id'])) {
+            $ids = [$raw['id']];
+        }
+
+        if (empty($ids)) {
+            http_response_code(400);
+            echo json_encode(["message" => "Sale ID(s) required for deletion."]);
+            return;
+        }
+
+        $this->performSalesDeletion($ids, (int)$payload['id'], $branch_id);
+    }
+
+    private function handleBulkDelete($payload, $branch_id = null) {
+        if (!$this->isSuperadmin($payload)) {
+            http_response_code(403);
+            echo json_encode(["message" => "Permission denied. Only Superadmin can delete sales."]);
+            return;
+        }
+
+        $raw = json_decode(file_get_contents("php://input"), true);
+        $ids = $raw['ids'] ?? [];
+        if (!is_array($ids) || empty($ids)) {
+            http_response_code(400);
+            echo json_encode(["message" => "An array of sale IDs ('ids') is required for bulk deletion."]);
+            return;
+        }
+
+        $this->performSalesDeletion($ids, (int)$payload['id'], $branch_id);
+    }
+
+    private function performSalesDeletion($ids, $user_id, $branch_id = null) {
+        $sale = new Sale($this->db);
+        $result = $sale->deleteSalesWithStockRestoration($ids, $user_id, $branch_id);
+
+        if ($result['status'] === 'success') {
+            http_response_code(200);
+            echo json_encode([
+                "message" => $result['message'],
+                "deleted_count" => $result['deleted_count'],
+                "restored_count" => $result['restored_count']
+            ]);
+        } else if ($result['status'] === 'not_found') {
+            http_response_code(404);
+            echo json_encode(["message" => $result['message']]);
+        } else if ($result['status'] === 'invalid_data') {
+            http_response_code(400);
+            echo json_encode(["message" => $result['message']]);
+        } else {
+            http_response_code(500);
+            echo json_encode([
+                "message" => $result['message'],
+                "error" => $result['error'] ?? null
+            ]);
         }
     }
 

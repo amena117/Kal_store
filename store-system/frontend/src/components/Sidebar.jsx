@@ -71,11 +71,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           { path: '/admin/products', name: 'Products', icon: <Package size={18} /> },
           { path: '/encoder/categories', name: 'Categories', icon: <Tags size={18} /> },
           { path: '/inventory/price-update', name: 'Price Update', icon: <DollarSign size={18} /> },
-          { 
-            path: '/admin/low-stock', 
-            name: 'Low Stock Alert', 
-            icon: <Bell size={18} />, 
-            badge: notifications.length > 0 ? notifications.length : null 
+          {
+            path: '/admin/low-stock',
+            name: 'Low Stock Alert',
+            icon: <Bell size={18} />,
+            badge: notifications.length > 0 ? notifications.length : null
           },
         ]
       },
@@ -131,11 +131,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         items: [
           { path: '/admin/products', name: 'Products', icon: <Package size={18} /> },
           { path: '/inventory/price-update', name: 'Price Update', icon: <DollarSign size={18} /> },
-          { 
-            path: '/admin/low-stock', 
-            name: 'Low Stock Alert', 
-            icon: <Bell size={18} />, 
-            badge: notifications.length > 0 ? notifications.length : null 
+          {
+            path: '/admin/low-stock',
+            name: 'Low Stock Alert',
+            icon: <Bell size={18} />,
+            badge: notifications.length > 0 ? notifications.length : null
           },
         ]
       },
@@ -217,8 +217,8 @@ const Sidebar = ({ isOpen, onClose }) => {
             Decor &amp; Inventory
           </span>
         </div>
-        <button 
-          className="lg:hidden ml-auto p-2 text-muted hover:text-white rounded-lg hover:bg-white/10 transition-colors" 
+        <button
+          className="lg:hidden ml-auto p-2 text-muted hover:text-white rounded-lg hover:bg-white/10 transition-colors"
           onClick={onClose}
           aria-label="Close sidebar"
         >
@@ -267,9 +267,9 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       {/* Sidebar Footer — User Profile & Logout */}
       <div className="mt-auto p-3.5 border-t border-glass-border bg-black/40 shrink-0 backdrop-blur-md">
-        <div 
-          className="glass-panel p-3 mb-3 cursor-pointer hover:bg-white/10 transition-all border border-white/5 hover:border-white/15 shadow-sm group rounded-xl" 
-          onClick={() => setShowProfile(true)} 
+        <div
+          className="glass-panel p-3 mb-3 cursor-pointer hover:bg-white/10 transition-all border border-white/5 hover:border-white/15 shadow-sm group rounded-xl"
+          onClick={() => setShowProfile(true)}
           title="Update Profile"
         >
           <div className="flex items-center gap-3">
@@ -299,8 +299,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        <button 
-          onClick={logout} 
+        <button
+          onClick={logout}
           className="btn btn-danger w-full justify-center py-2.5 rounded-xl font-semibold text-sm shadow-md gap-2"
         >
           <LogOut size={16} />

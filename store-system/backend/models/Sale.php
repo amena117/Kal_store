@@ -204,5 +204,153 @@ class Sale {
         $stmt->execute();
         return $stmt;
     }
+
+    /**
+     * Delete one or multiple sales and restore product stock inside a single database transaction.
+     * Enforces strict integrity rules, rollback on failure, and audit logging to product_history.
+     */
+    public function deleteSalesWithStockRestoration($sale_ids, $user_id, $branch_id = null) {
+        // 1. Sanitize & deduplicate IDs (never process duplicate IDs)
+        $clean_ids = array_values(array_unique(array_filter(array_map('intval', (array)$sale_ids), function($id) {
+            return $id > 0;
+        })));
+
+        if (empty($clean_ids)) {
+            return [
+                "status" => "invalid_data",
+                "message" => "No valid sale IDs provided."
+            ];
+        }
+
+        try {
+            $this->conn->beginTransaction();
+
+            // 2. Lock & fetch all targeted sales
+            $placeholders = implode(',', array_fill(0, count($clean_ids), '?'));
+            $query = "SELECT s.id, s.product_id, s.quantity, s.branch_id, p.name AS product_name 
+                      FROM " . $this->table_name . " s 
+                      LEFT JOIN products p ON s.product_id = p.id 
+                      WHERE s.id IN ($placeholders) FOR UPDATE";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute($clean_ids);
+            $found_sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Validate that every requested sale exists in the database
+            if (count($found_sales) !== count($clean_ids)) {
+                $found_ids = array_map('intval', array_column($found_sales, 'id'));
+                $missing = array_diff($clean_ids, $found_ids);
+                $this->conn->rollBack();
+                return [
+                    "status" => "not_found",
+                    "message" => "One or more sales could not be found or have already been deleted (IDs: " . implode(', ', $missing) . "). Operation rolled back."
+                ];
+            }
+
+            // 3. Aggregate product quantities to restore (handles multi-item sales and multiple sales for same product)
+            $stock_restorations = []; // [product_id => total_quantity]
+            foreach ($found_sales as $sale) {
+                $pid = (int)$sale['product_id'];
+                $qty = (int)$sale['quantity'];
+
+                if ($pid <= 0 || $qty <= 0) {
+                    $this->conn->rollBack();
+                    return [
+                        "status" => "invalid_data",
+                        "message" => "Sale #{$sale['id']} contains invalid product or quantity data. Operation rolled back."
+                    ];
+                }
+
+                if (!isset($stock_restorations[$pid])) {
+                    $stock_restorations[$pid] = 0;
+                }
+                $stock_restorations[$pid] += $qty;
+            }
+
+            // 4. Validate that all associated products exist in inventory and lock them
+            $prod_ids = array_keys($stock_restorations);
+            $prod_placeholders = implode(',', array_fill(0, count($prod_ids), '?'));
+            $prod_query = "SELECT id, name, arrival_price, selling_price, quantity 
+                           FROM products 
+                           WHERE id IN ($prod_placeholders) FOR UPDATE";
+            $prod_stmt = $this->conn->prepare($prod_query);
+            $prod_stmt->execute($prod_ids);
+            $products = [];
+            while ($row = $prod_stmt->fetch(PDO::FETCH_ASSOC)) {
+                $products[(int)$row['id']] = $row;
+            }
+
+            if (count($products) !== count($prod_ids)) {
+                $found_pids = array_map('intval', array_keys($products));
+                $missing_pids = array_diff($prod_ids, $found_pids);
+                $this->conn->rollBack();
+                return [
+                    "status" => "invalid_data",
+                    "message" => "Cannot restore stock: Associated product(s) (IDs: " . implode(', ', $missing_pids) . ") do not exist in inventory. Operation rolled back."
+                ];
+            }
+
+            // 5. Restore product stock and log to product_history (audit trail)
+            $update_stock_stmt = $this->conn->prepare("UPDATE products SET quantity = quantity + ? WHERE id = ?");
+            $hist_stmt = $this->conn->prepare(
+                "INSERT INTO product_history 
+                 (product_id, old_arrival_price, new_arrival_price, old_price, new_price, old_quantity, new_quantity, changed_by) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+
+            foreach ($stock_restorations as $pid => $restore_qty) {
+                $prod = $products[$pid];
+                $old_qty = (int)$prod['quantity'];
+                $new_qty = $old_qty + $restore_qty;
+
+                // Add sold quantity back to product inventory
+                $update_stock_stmt->execute([$restore_qty, $pid]);
+
+                // Record in product audit history
+                $hist_stmt->execute([
+                    $pid,
+                    $prod['arrival_price'],
+                    $prod['arrival_price'],
+                    $prod['selling_price'],
+                    $prod['selling_price'],
+                    $old_qty,
+                    $new_qty,
+                    $user_id
+                ]);
+            }
+
+            // 6. Delete sale edit history records associated with these sales
+            $del_hist_stmt = $this->conn->prepare("DELETE FROM sale_edit_history WHERE sale_id IN ($placeholders)");
+            $del_hist_stmt->execute($clean_ids);
+
+            // 7. Delete sales records
+            $del_sales_stmt = $this->conn->prepare("DELETE FROM " . $this->table_name . " WHERE id IN ($placeholders)");
+            $del_sales_stmt->execute($clean_ids);
+
+            // 8. Commit atomic transaction
+            $this->conn->commit();
+
+            $deleted_count = count($clean_ids);
+            $msg = $deleted_count === 1
+                ? "1 sale deleted and inventory quantity restored successfully."
+                : "{$deleted_count} sales deleted and inventory quantities restored successfully.";
+
+            return [
+                "status" => "success",
+                "message" => $msg,
+                "deleted_count" => $deleted_count,
+                "restored_count" => array_sum($stock_restorations)
+            ];
+        } catch (Exception $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log("Sale delete error: " . $e->getMessage());
+            return [
+                "status" => "error",
+                "message" => "An error occurred while deleting sales and restoring inventory: " . $e->getMessage(),
+                "error" => $e->getMessage()
+            ];
+        }
+    }
 }
 ?>
